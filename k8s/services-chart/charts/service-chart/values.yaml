@@ -1,0 +1,20 @@
+service:
+  port: 8080
+  isGateway:
+  image:
+    name:
+    version:
+  database:
+    name:
+    host: c-c9qlg7pqrfel3d8d1k3s.rw.mdb.yandexcloud.net
+    port: 6432
+    username: rsoi
+    password: rsoirsoi
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 200m
+      memory: 512Mi
+    

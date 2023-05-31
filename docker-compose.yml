@@ -1,7 +1,7 @@
 version: "3"
 services:
   postgres:
-    image: library/postgres:15
+    image: library/postgres:13
     container_name: postgres
     restart: on-failure
     environment:
@@ -9,38 +9,33 @@ services:
       POSTGRES_PASSWORD: "postgres"
       POSTGRES_DB: postgres
     volumes:
-      - db-data:/var/lib/postgresql/data
-      - ./postgres/:/docker-entrypoint-initdb.d/
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
       - "5432:5432"
-
-  zookeeper:
-    image: confluentinc/cp-zookeeper:7.3.2
-    container_name: zookeeper
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
+      
+  gateway:
+    image: sltn011/gateway
+    build: ./src/Gateway/
     ports:
-      - "22181:2181"
-
-  kafka:
-    image: confluentinc/cp-kafka:7.3.2
-    container_name: kafka-1
+      - "8080:8080"
+      
+  cars:
+    image: sltn011/cars
+    build: ./src/Cars/
     ports:
-      - "9092:9092"
-    environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
-      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
-    depends_on:
-      - zookeeper
-
-# TODO добавить сервисы
+      - "8070:8070"
+      
+  rental:
+    image: sltn011/rental
+    build: ./src/Rental/
+    ports:
+      - "8060:8060"
+      
+  payment:
+    image: sltn011/payment
+    build: ./src/Payment/
+    ports:
+      - "8050:8050"
 
 volumes:
   db-data:

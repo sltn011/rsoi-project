@@ -1,0 +1,31 @@
+payment:
+  service:
+    port: 8050
+    image:
+      name: sltn011/payment
+      version: "latest"
+    database: 
+      name: payments
+rental:
+  service:
+    port: 8060
+    image:
+      name: sltn011/rental
+      version: "latest"
+    database: 
+      name: rentals
+cars:
+  service:
+    port: 8070
+    image:
+      name: sltn011/cars
+      version: "latest"
+    database: 
+      name: cars
+gateway:
+  service:
+    port: 8080
+    image:
+      name: sltn011/gateway
+      version: "latest"
+    isGateway: true
