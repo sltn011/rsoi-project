@@ -1,0 +1,22 @@
+package ru.rsoi.Accounts.Repo;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.stereotype.Repository;
+import ru.rsoi.Accounts.Model.MAccount;
+
+import java.util.List;
+import java.util.UUID;
+
+@Repository
+public interface RAccounts extends JpaRepository<MAccount, Integer> {
+
+    @Query("SELECT c FROM MCar c where c.v8_availability = true")
+    public Page<MAccount> findAvailable(Pageable pageable);
+
+    @Query("SELECT c FROM MAccount c where c.acc_uid = ?1")
+    public List<MAccount> findAccByUid(UUID carUid);
+
+}
