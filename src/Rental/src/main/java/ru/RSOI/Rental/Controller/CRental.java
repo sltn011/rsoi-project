@@ -1,5 +1,6 @@
 package ru.RSOI.Rental.Controller;
 
+import Utils.AvgTime;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import ru.RSOI.Rental.Error.EBadRequestError;
@@ -15,28 +16,42 @@ import java.util.*;
 public class CRental {
 
     private final RRental rentRepo;
+    private AvgTime avgTime;
 
     public CRental(RRental rentRepo)
     {
         this.rentRepo = rentRepo;
+        this.avgTime = new AvgTime();
     }
 
     @GetMapping("")
     public List<MRental> getUserRents(@RequestHeader(value = "X-User-Name") String username)
     {
-        return rentRepo.findUserRents(username);
+        AvgTime avg = new AvgTime();
+        avg.begin();
+        List res= rentRepo.findUserRents(username);
+        avg.end();
+        avgTime.add(avg.get());
+        return  res;
     }
 
     @GetMapping("/{rentalUid}")
     public MRental getRentByUUID(@PathVariable String rentalUid, @RequestHeader(value = "X-User-Name") String username)
     {
+        AvgTime avg = new AvgTime();
+        avg.begin();
         UUID uid = UUID.fromString(rentalUid);
-        return findRentWithChecks(uid, username);
+        MRental res = findRentWithChecks(uid, username);
+        avg.end();
+        avgTime.add(avg.get());
+        return res;
     }
 
     @PostMapping("")
     public MRental tryRenting(@RequestHeader(value = "X-User-Name") String username, @RequestBody Map<String, String> values)
     {
+        AvgTime avg = new AvgTime();
+        avg.begin();
         UUID carUid;
         UUID paymentUid;
         Timestamp dateFrom;
@@ -120,6 +135,8 @@ public class CRental {
         newRent.v7_status = "IN_PROGRESS";
 
         rentRepo.save(newRent);
+        avg.end();
+        avgTime.add(avg.get());
         return newRent;
     }
 
@@ -127,22 +144,38 @@ public class CRental {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void finish(@PathVariable String rentalUid, @RequestHeader(value = "X-User-Name") String username)
     {
+        AvgTime avg = new AvgTime();
+        avg.begin();
         UUID uid = UUID.fromString(rentalUid);
         MRental foundRent = findInProgressRentWithChecks(uid, username);
         foundRent.v7_status = "FINISHED";
         rentRepo.deleteById(foundRent.getId());
         rentRepo.save(foundRent);
+        avg.end();
+        avgTime.add(avg.get());
     }
 
     @DeleteMapping("/{rentalUid}/cancel")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void cancelRent(@PathVariable String rentalUid, @RequestHeader(value = "X-User-Name") String username)
     {
+        AvgTime avg = new AvgTime();
+        avg.begin();
         UUID uid = UUID.fromString(rentalUid);
         MRental foundRent = findInProgressRentWithChecks(uid, username);
         foundRent.v7_status = "CANCELED";
         rentRepo.deleteById(foundRent.getId());
         rentRepo.save(foundRent);
+        avg.end();
+        avgTime.add(avg.get());
+    }
+
+    @GetMapping("/stats")
+    public AvgTime.Info getAvgTime()
+    {
+        AvgTime.Info res = new AvgTime.Info();
+        res.avgTime = avgTime.get();
+        return res;
     }
 
     MRental findRentWithChecks(UUID rentalUid, String username)

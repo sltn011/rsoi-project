@@ -1,5 +1,6 @@
 package ru.RSOI.Gateway.Controller;
 
+import Utils.AvgTime;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.springframework.http.*;
@@ -25,6 +26,13 @@ public class CGateway {
     public static final String RentService    = "http://10.96.185.123:8060/api/v1/sys/rental";
     public static final String PaymentService = "http://10.96.215.106:8050/api/v1/sys/payment";
 
+    private AvgTime avgTime;
+
+    public CGateway()
+    {
+        this.avgTime = new AvgTime();
+    }
+
     @GetMapping("/hello")
     public String healthcheck()
     {
@@ -35,6 +43,8 @@ public class CGateway {
     public MCarsPage getAvailableCars(@RequestParam int page, @RequestParam int size,
                                       @RequestParam(defaultValue = "false") boolean showAll)
     {
+        AvgTime avg = new AvgTime();
+        avg.begin();
         String url = UriComponentsBuilder.fromHttpUrl(CarsService)
                 .queryParam("page", page)
                 .queryParam("size", size)
@@ -94,19 +104,28 @@ public class CGateway {
         }
 
         MCarsPage carsPage = new MCarsPage(page, size, totalElements, carsInfo);
+        avg.end();
+        avgTime.add(avg.get());
         return carsPage;
     }
 
     @GetMapping("/rental")
     public List<MRentInfo> getAllUserRents(@RequestHeader(value = "X-User-Name") String username)
     {
-        return getAllUserRentsList(username);
+        AvgTime avg = new AvgTime();
+        avg.begin();
+        List res = getAllUserRentsList(username);
+        avg.end();
+        avgTime.add(avg.get());
+        return res;
     }
 
     @PostMapping("/rental")
     public MRentSuccess tryRenting(@RequestHeader(value = "X-User-Name") String username,
                                    @RequestBody Map<String, String> values)
     {
+        AvgTime avg = new AvgTime();
+        avg.begin();
         if (!values.containsKey("carUid") || !values.containsKey("dateFrom") || !values.containsKey("dateTo"))
         {
             throw new EBadRequestError("Not all variables in request!", new ArrayList<>());
@@ -125,6 +144,8 @@ public class CGateway {
         MRentPaymentInfo paymentInfo = createPayment(diff * car.price);
         MRentInfo rentInfo = createRent(username, carUid, paymentInfo.paymentUid.toString(), dateFrom, dateTo);
 
+        avg.end();
+        avgTime.add(avg.get());
         return new MRentSuccess(rentInfo.rentalUid, rentInfo.status, rentInfo.car.carUid,
                 rentInfo.dateFrom, rentInfo.dateTo, paymentInfo);
     }
@@ -132,13 +153,20 @@ public class CGateway {
     @GetMapping("/rental/{rentalUid}")
     public MRentInfo getUserRent(@PathVariable String rentalUid, @RequestHeader(value = "X-User-Name") String username)
     {
-        return getUserRentByUid(username, rentalUid);
+        AvgTime avg = new AvgTime();
+        avg.begin();
+        MRentInfo res = getUserRentByUid(username, rentalUid);
+        avg.end();
+        avgTime.add(avg.get());
+        return res;
     }
 
     @DeleteMapping("/rental/{rentalUid}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void cancelUserRent(@PathVariable String rentalUid, @RequestHeader(value = "X-User-Name") String username)
     {
+        AvgTime avg = new AvgTime();
+        avg.begin();
         MRentInfo rentInfo = getUserRentByUid(username, rentalUid);
         if (rentInfo.status.equals("IN_PROGRESS"))
         {
@@ -146,18 +174,32 @@ public class CGateway {
             cancelRent(username, rentalUid);
             cancelPayment(rentInfo.payment.paymentUid.toString());
         }
+        avg.end();
+        avgTime.add(avg.get());
     }
 
     @PostMapping("/rental/{rentalUid}/finish")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void finishUserRent(@PathVariable String rentalUid, @RequestHeader(value = "X-User-Name") String username)
     {
+        AvgTime avg = new AvgTime();
+        avg.begin();
         MRentInfo rentInfo = getUserRentByUid(username, rentalUid);
         if (rentInfo.status.equals("IN_PROGRESS"))
         {
             setCarAvailable(rentInfo.car.carUid.toString(), true);
             finishRent(username, rentalUid);
         }
+        avg.end();
+        avgTime.add(avg.get());
+    }
+
+    @GetMapping("/stats")
+    public AvgTime.Info getAvgTime()
+    {
+        AvgTime.Info res = new AvgTime.Info();
+        res.avgTime = avgTime.get();
+        return res;
     }
 
     private MRentCarInfo getRentCarInfo(String carUid)

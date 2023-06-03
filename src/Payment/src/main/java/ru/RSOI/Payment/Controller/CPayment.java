@@ -1,5 +1,6 @@
 package ru.RSOI.Payment.Controller;
 
+import Utils.AvgTime;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import ru.RSOI.Payment.Error.EBadRequestError;
@@ -17,32 +18,48 @@ import java.util.UUID;
 public class CPayment {
 
     private final RPayment paymentRepo;
+    private AvgTime avgTime;
 
     public CPayment(RPayment paymentRepo)
     {
         this.paymentRepo = paymentRepo;
+        this.avgTime = new AvgTime();
     }
 
     @GetMapping("")
     public List<MPayment> getAll()
     {
-        return paymentRepo.findAll();
+        AvgTime avg = new AvgTime();
+        avg.begin();
+        List res = paymentRepo.findAll();
+        avg.end();
+        avgTime.add(avg.get());
+        return res;
     }
 
     @GetMapping("/{payment_uid}")
     public MPayment getPayments(@PathVariable String payment_uid)
     {
+        AvgTime avg = new AvgTime();
+        avg.begin();
         UUID uid = UUID.fromString(payment_uid);
-        return findPayment(uid);
+        MPayment res = findPayment(uid);
+        avg.end();
+        avgTime.add(avg.get());
+        return  res;
     }
 
     @PostMapping("/{price}")
     public MPayment createPayment(@PathVariable int price)
     {
+        AvgTime avg = new AvgTime();
+        avg.begin();
         MPayment payment = new MPayment();
         payment.v2_status = "PAID";
         payment.v3_price = price;
         paymentRepo.save(payment);
+        avg.end();
+        avgTime.add(avg.get());
         return payment;
     }
 
@@ -50,11 +67,23 @@ public class CPayment {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void cancelPayment(@PathVariable String payment_uid)
     {
+        AvgTime avg = new AvgTime();
+        avg.begin();
         UUID uid = UUID.fromString(payment_uid);
         MPayment payment = findPayment(uid);
         paymentRepo.deleteById(payment.getId());
         payment.v2_status = "CANCELED";
         paymentRepo.save(payment);
+        avg.end();
+        avgTime.add(avg.get());
+    }
+
+    @GetMapping("/stats")
+    public AvgTime.Info getAvgTime()
+    {
+        AvgTime.Info res = new AvgTime.Info();
+        res.avgTime = avgTime.get();
+        return res;
     }
 
     private MPayment findPayment(UUID payment_uid)

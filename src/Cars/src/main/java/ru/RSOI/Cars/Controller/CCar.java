@@ -1,5 +1,6 @@
 package ru.RSOI.Cars.Controller;
 
+import Utils.AvgTime;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -17,55 +18,87 @@ import java.util.*;
 public class CCar {
 
     private final RCar carRepo;
+    private AvgTime avgTime;
 
     public CCar(RCar carRepo)
     {
         this.carRepo = carRepo;
+        this.avgTime = new AvgTime();
     }
 
     @GetMapping("")
     public Iterable<MCar> getCars(
             @RequestParam int page, @RequestParam int size, @RequestParam(defaultValue = "false") boolean showAll)
     {
-        return getCarsPage(page - 1, size, showAll);
+        AvgTime avg = new AvgTime();
+        avg.begin();
+        Iterable res = getCarsPage(page - 1, size, showAll);
+        avg.end();
+        avgTime.add(avg.get());
+        return res;
     }
 
     @GetMapping("/{carUid}")
     public MCar getCar(@PathVariable String carUid)
     {
-        return findCar(UUID.fromString(carUid))
-                .orElseThrow(() -> new EBadRequestError("Car not found!", new ArrayList<>()));
+        AvgTime avg = new AvgTime();
+        avg.begin();
+        Optional<MCar> res = findCar(UUID.fromString(carUid));
+        avg.end();
+        avgTime.add(avg.get());
+        if (!res.isPresent()) throw new EBadRequestError("Car not found!", new ArrayList<>());
+        return res.get();
     }
 
     @PostMapping("")
     public ResponseEntity<Object> addCar(@RequestBody Map<String, String> values)
     {
+        AvgTime avg = new AvgTime();
+        avg.begin();
         MCar car = new MCar();
         fillValues(car, values);
         int newID = carRepo.save(car).getId();
 
         String stringLocation = String.format("/api/v1/sys/cars/%d", newID);
         URI location = ServletUriComponentsBuilder.fromUriString(stringLocation).build().toUri();
+        avg.end();
+        avgTime.add(avg.get());
         return ResponseEntity.created(location).build();
     }
 
     @PutMapping("/{carUid}/{isSetAvailable}")
     public MCar updateAvailableCar(@PathVariable String carUid, @PathVariable boolean isSetAvailable)
     {
+        AvgTime avg = new AvgTime();
+        avg.begin();
         UUID carUidVal = UUID.fromString(carUid);
         MCar car = findAnyCar(carUidVal);
         updateAvailability(car, isSetAvailable);
         carRepo.deleteById(car.getId());
+        avg.end();
+        avgTime.add(avg.get());
         return carRepo.save(car);
     }
 
     @PutMapping("/request/{carUid}")
     public MCar requestAvailableCar(@PathVariable String carUid)
     {
+        AvgTime avg = new AvgTime();
+        avg.begin();
         MCar car = findAvailableCar(UUID.fromString(carUid));
         updateAvailability(car, false);
         carRepo.deleteById(car.getId());
+        avg.end();
+        avgTime.add(avg.get());
         return carRepo.save(car);
+    }
+
+    @GetMapping("/stats")
+    public AvgTime.Info getAvgTime()
+    {
+        AvgTime.Info res = new AvgTime.Info();
+        res.avgTime = avgTime.get();
+        return res;
     }
 
     private Iterable<MCar> getCarsPage(int page, int size, boolean showAll)

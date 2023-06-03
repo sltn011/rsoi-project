@@ -13,7 +13,7 @@ import java.net.URI;
 import java.util.*;
 
 @RestController
-@RequestMapping("/api/v1/sys/accounts")
+@RequestMapping("/api/v1/sys/acc")
 public class CAccounts {
 
     private final RAccounts accRepo;
