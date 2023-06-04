@@ -1,6 +1,12 @@
 package ru.RSOI.Gateway.Controller;
 
 import Utils.AvgTime;
+import com.auth0.jwk.Jwk;
+import com.auth0.jwk.JwkProvider;
+import com.auth0.jwk.UrlJwkProvider;
+import com.auth0.jwt.JWT;
+import com.auth0.jwt.algorithms.Algorithm;
+import com.auth0.jwt.interfaces.DecodedJWT;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.springframework.http.*;
@@ -10,8 +16,10 @@ import org.springframework.web.util.UriBuilder;
 import org.springframework.web.util.UriComponentsBuilder;
 import ru.RSOI.Gateway.Error.EBadRequestError;
 import ru.RSOI.Gateway.Error.ENotFoundError;
+import ru.RSOI.Gateway.Error.EUnauthorized;
 import ru.RSOI.Gateway.Model.*;
 
+import java.security.interfaces.RSAPublicKey;
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.time.Duration;
@@ -40,11 +48,20 @@ public class CGateway {
     }
 
     @GetMapping("/cars")
-    public MCarsPage getAvailableCars(@RequestParam int page, @RequestParam int size,
+    public MCarsPage getAvailableCars(@RequestHeader(value = "Authorization", required = false) String access_token,
+                                      @RequestParam int page, @RequestParam int size,
                                       @RequestParam(defaultValue = "false") boolean showAll)
     {
         AvgTime avg = new AvgTime();
         avg.begin();
+
+        if (!IsValidToken(access_token))
+        {
+            avg.end();
+            avgTime.add(avg.get());
+            throw new EUnauthorized("Not authorized!");
+        }
+
         String url = UriComponentsBuilder.fromHttpUrl(CarsService)
                 .queryParam("page", page)
                 .queryParam("size", size)
@@ -68,24 +85,34 @@ public class CGateway {
         catch (HttpClientErrorException e)
         {
             System.out.println(e);
+            avg.end();
+            avgTime.add(avg.get());
             throw new EBadRequestError(e.toString(), new ArrayList<>());
         }
         catch (HttpServerErrorException e)
         {
             System.out.println(e);
+            avg.end();
+            avgTime.add(avg.get());
             throw new EBadRequestError(e.toString(), new ArrayList<>());
         }
         catch (RestClientException e)
         {
             System.out.println(e);
+            avg.end();
+            avgTime.add(avg.get());
             throw new EBadRequestError(e.toString(), new ArrayList<>());
         }
         if (response.getStatusCode() == HttpStatus.NOT_FOUND)
         {
+            avg.end();
+            avgTime.add(avg.get());
             throw new ENotFoundError(response.getBody());
         }
         if (response.getStatusCode() == HttpStatus.BAD_REQUEST)
         {
+            avg.end();
+            avgTime.add(avg.get());
             throw new EBadRequestError(response.getBody(), new ArrayList<>());
         }
 
@@ -110,10 +137,17 @@ public class CGateway {
     }
 
     @GetMapping("/rental")
-    public List<MRentInfo> getAllUserRents(@RequestHeader(value = "X-User-Name") String username)
+    public List<MRentInfo> getAllUserRents(@RequestHeader(value = "Authorization", required = false) String access_token)
     {
         AvgTime avg = new AvgTime();
         avg.begin();
+        if (!IsValidToken(access_token))
+        {
+            avg.end();
+            avgTime.add(avg.get());
+            throw new EUnauthorized("Not authorized!");
+        }
+        String username = getUsername(access_token);
         List res = getAllUserRentsList(username);
         avg.end();
         avgTime.add(avg.get());
@@ -121,13 +155,24 @@ public class CGateway {
     }
 
     @PostMapping("/rental")
-    public MRentSuccess tryRenting(@RequestHeader(value = "X-User-Name") String username,
+    public MRentSuccess tryRenting(@RequestHeader(value = "Authorization", required = false) String access_token,
                                    @RequestBody Map<String, String> values)
     {
         AvgTime avg = new AvgTime();
         avg.begin();
+
+        if (!IsValidToken(access_token))
+        {
+            avg.end();
+            avgTime.add(avg.get());
+            throw new EUnauthorized("Not authorized!");
+        }
+        String username = getUsername(access_token);
+
         if (!values.containsKey("carUid") || !values.containsKey("dateFrom") || !values.containsKey("dateTo"))
         {
+            avg.end();
+            avgTime.add(avg.get());
             throw new EBadRequestError("Not all variables in request!", new ArrayList<>());
         }
 
@@ -151,10 +196,20 @@ public class CGateway {
     }
 
     @GetMapping("/rental/{rentalUid}")
-    public MRentInfo getUserRent(@PathVariable String rentalUid, @RequestHeader(value = "X-User-Name") String username)
+    public MRentInfo getUserRent(@RequestHeader(value = "Authorization", required = false) String access_token,
+                                 @PathVariable String rentalUid)
     {
         AvgTime avg = new AvgTime();
         avg.begin();
+
+        if (!IsValidToken(access_token))
+        {
+            avg.end();
+            avgTime.add(avg.get());
+            throw new EUnauthorized("Not authorized!");
+        }
+        String username = getUsername(access_token);
+
         MRentInfo res = getUserRentByUid(username, rentalUid);
         avg.end();
         avgTime.add(avg.get());
@@ -163,10 +218,18 @@ public class CGateway {
 
     @DeleteMapping("/rental/{rentalUid}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void cancelUserRent(@PathVariable String rentalUid, @RequestHeader(value = "X-User-Name") String username)
+    @ResponseBody
+    public void cancelUserRent(@RequestHeader(value = "Authorization", required = false) String access_token,
+                               @PathVariable String rentalUid)
+
     {
         AvgTime avg = new AvgTime();
         avg.begin();
+        if (!IsValidToken(access_token))
+        {
+            throw new EUnauthorized("Not authorized!");
+        }
+        String username = getUsername(access_token);
         MRentInfo rentInfo = getUserRentByUid(username, rentalUid);
         if (rentInfo.status.equals("IN_PROGRESS"))
         {
@@ -180,10 +243,16 @@ public class CGateway {
 
     @PostMapping("/rental/{rentalUid}/finish")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void finishUserRent(@PathVariable String rentalUid, @RequestHeader(value = "X-User-Name") String username)
+    public void finishUserRent(@RequestHeader(value = "Authorization", required = false) String access_token,
+                               @PathVariable String rentalUid)
     {
         AvgTime avg = new AvgTime();
         avg.begin();
+        if (!IsValidToken(access_token))
+        {
+            throw new EUnauthorized("Not authorized!");
+        }
+        String username = getUsername(access_token);
         MRentInfo rentInfo = getUserRentByUid(username, rentalUid);
         if (rentInfo.status.equals("IN_PROGRESS"))
         {
@@ -195,10 +264,19 @@ public class CGateway {
     }
 
     @GetMapping("/stats")
-    public AvgTime.Info getAvgTime()
+    public AvgTime.Info getAvgTime(@RequestHeader(value = "Authorization", required = false) String access_token)
     {
+        AvgTime avg = new AvgTime();
+        avg.begin();
+        if (!IsValidToken(access_token))
+        {
+            throw new EUnauthorized("Not authorized!");
+        }
+        String username = getUsername(access_token);
         AvgTime.Info res = new AvgTime.Info();
         res.avgTime = avgTime.get();
+        avg.end();
+        avgTime.add(avg.get());
         return res;
     }
 
@@ -756,5 +834,79 @@ public class CGateway {
         {
             throw new EBadRequestError(response.getBody(), new ArrayList<>());
         }
+    }
+
+    String getUsername(String access_token)
+    {
+        String url = UriComponentsBuilder.fromHttpUrl("https://dev-dpvduigq7zb3kgk5.us.auth0.com/userinfo")
+                .toUriString();
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.set(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE);
+        headers.set(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_FORM_URLENCODED_VALUE);
+        headers.set(HttpHeaders.AUTHORIZATION, access_token);
+        HttpHeaders body = new HttpHeaders();
+        body.set("access_token", access_token.substring(7));
+        body.set("aud", "[\"https://dumbass-lab.com/api/v1\", \"https://dev-dpvduigq7zb3kgk5.us.auth0.com/userinfo\"]");
+        HttpEntity<?> entity = new HttpEntity<>(body, headers);
+
+        RestOperations restOperations = new RestTemplate();
+        ResponseEntity<String> response;
+        try {
+            response  = restOperations.exchange(
+                    url,
+                    HttpMethod.GET,
+                    entity,
+                    String.class
+            );
+        }
+        catch (HttpClientErrorException e)
+        {
+            System.out.println(e);
+            throw new EBadRequestError(e.toString(), new ArrayList<>());
+        }
+        catch (HttpServerErrorException e)
+        {
+            System.out.println(e);
+            throw new EBadRequestError(e.toString(), new ArrayList<>());
+        }
+        catch (RestClientException e)
+        {
+            System.out.println(e);
+            throw new EBadRequestError(e.toString(), new ArrayList<>());
+        }
+        if (response.getStatusCode() == HttpStatus.UNAUTHORIZED)
+        {
+            throw new EUnauthorized(response.getBody());
+        }
+
+        JSONObject obj = new JSONObject(response.getBody());
+        return obj.getString("name");
+    }
+
+    boolean IsValidToken(String access_token)
+    {
+        if (access_token == null)
+        {
+            return false;
+        }
+        try {
+            String token = access_token.substring(7);
+            DecodedJWT jwt = JWT.decode(token);
+            JwkProvider provider = new UrlJwkProvider("https://dev-dpvduigq7zb3kgk5.us.auth0.com");
+            Jwk jwk = provider.get(jwt.getKeyId());
+            Algorithm algorithm = Algorithm.RSA256((RSAPublicKey) jwk.getPublicKey(), null);
+            algorithm.verify(jwt);
+
+            if (jwt.getExpiresAt().before(Calendar.getInstance().getTime())) {
+                return false;
+            }
+        }
+        catch (Exception e)
+        {
+            System.out.println(e);
+            return false;
+        }
+        return true;
     }
 }
