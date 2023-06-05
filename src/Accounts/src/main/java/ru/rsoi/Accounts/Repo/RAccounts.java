@@ -17,6 +17,12 @@ public interface RAccounts extends JpaRepository<MAccount, Integer> {
     public Page<MAccount> findAvailable(Pageable pageable);
 
     @Query("SELECT c FROM MAccount c where c.acc_uid = ?1")
-    public List<MAccount> findAccByUid(UUID carUid);
+    public List<MAccount> findAccByUid(UUID uid);
+
+    @Query("SELECT c FROM MAccount c where c.username = ?1")
+    public List<MAccount> findAccByUName(String uname);
+
+    @Query("SELECT c FROM MAccount c where (c.username = ?1 and c.password = ?2)")
+    public List<MAccount> findAcc(String uname, String password);
 
 }

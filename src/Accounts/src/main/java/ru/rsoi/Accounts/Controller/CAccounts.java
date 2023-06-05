@@ -29,23 +29,43 @@ public class CAccounts {
         return accRepo.findAll();
     }
 
-    @GetMapping("/{accUid}")
+    @GetMapping("/uid/{accUid}")
     public MAccount getAcc(@PathVariable String accUid)
     {
         return findAccByUid(UUID.fromString(accUid))
                 .orElseThrow(() -> new EBadRequestError("Acc not found!", new ArrayList<>()));
     }
 
-    @PostMapping("")
-    public ResponseEntity<Object> addAcc(@RequestBody Map<String, String> values)
+    @GetMapping("/uname/{username}")
+    public MAccount getAccByUName(@PathVariable String uname)
     {
+        return findAccByUName(uname)
+                .orElseThrow(() -> new EBadRequestError("Acc not found!", new ArrayList<>()));
+    }
+
+    @GetMapping("/login")
+    public MAccount login(@RequestBody Map<String, String> values)
+    {
+        String username = values.get("username");
+        String password = values.get("password");
+        return findAcc(username, password)
+                .orElseThrow(() -> new EBadRequestError("Acc not found!", new ArrayList<>()));
+    }
+
+    @PostMapping("/register")
+    public MAccount addAcc(@RequestBody Map<String, String> values)
+    {
+        String username = values.get("username");
+        boolean doesExist = findAccByUName(username).isPresent();
+        if (doesExist)
+        {
+            throw new EBadRequestError("User already exists!", new ArrayList<>());
+        }
+
         MAccount acc = new MAccount();
         fillValues(acc, values);
-        int newID = accRepo.save(acc).getId();
-
-        String stringLocation = String.format("/api/v1/sys/accounts/%d", newID);
-        URI location = ServletUriComponentsBuilder.fromUriString(stringLocation).build().toUri();
-        return ResponseEntity.created(location).build();
+        accRepo.save(acc);
+        return acc;
     }
 
     @PutMapping("/{carUid}")
@@ -68,6 +88,28 @@ public class CAccounts {
     private Optional<MAccount> findAccByUid(UUID accUid)
     {
         List<MAccount> accs = accRepo.findAccByUid(accUid);
+        if (accs.size() == 0)
+        {
+            return Optional.empty();
+        }
+
+        return Optional.of(accs.get(0));
+    }
+
+    private Optional<MAccount> findAccByUName(String uname)
+    {
+        List<MAccount> accs = accRepo.findAccByUName(uname);
+        if (accs.size() == 0)
+        {
+            return Optional.empty();
+        }
+
+        return Optional.of(accs.get(0));
+    }
+
+    private Optional<MAccount> findAcc(String uname, String password)
+    {
+        List<MAccount> accs = accRepo.findAcc(uname, password);
         if (accs.size() == 0)
         {
             return Optional.empty();

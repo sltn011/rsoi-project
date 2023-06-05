@@ -9,12 +9,6 @@ import java.util.UUID;
 @Table(name="accounts")
 public class MAccount {
 
-    public enum Role
-    {
-        USER,
-        ADMIN
-    }
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id = -1;
@@ -29,13 +23,13 @@ public class MAccount {
     public String password;
 
     @Column(name = "role", nullable = false)
-    public Role role;
+    public String role;
 
-    public MAccount() {}
+    public MAccount() {accUid = UUID.randomUUID(); role = "user";}
 
     public int getId() {return id;}
 
-    public MAccount(UUID accUid, String username, String password, Role role) {
+    public MAccount(UUID accUid, String username, String password, String role) {
         this.accUid = accUid;
         this.username = username;
         this.password = password;
