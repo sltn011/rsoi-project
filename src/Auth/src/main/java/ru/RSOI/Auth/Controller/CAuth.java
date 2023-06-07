@@ -5,6 +5,7 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.impl.TextCodec;
 import io.jsonwebtoken.impl.crypto.DefaultJwtSignatureValidator;
+import org.json.JSONObject;
 import org.springframework.web.bind.annotation.*;
 
 import javax.crypto.spec.SecretKeySpec;
@@ -20,6 +21,16 @@ public class CAuth {
     private String issuer;
     private SignatureAlgorithm sa;
 
+    public class TokenRes
+    {
+        public String token;
+
+        public TokenRes(String token)
+        {
+            this.token = token;
+        }
+    }
+
     public class IsValidRes
     {
         public String valid;
@@ -27,6 +38,18 @@ public class CAuth {
         public IsValidRes(String valid)
         {
             this.valid = valid;
+        }
+    }
+
+    public class UserInfo
+    {
+        public String username;
+        public String role;
+
+        public UserInfo(String username, String role)
+        {
+            this.username = username;
+            this.role = role;
         }
     }
 
@@ -43,12 +66,8 @@ public class CAuth {
     }
 
     @GetMapping("/get")
-    public String getAuthToken(@RequestBody Map<String, String> values)
+    public TokenRes getAuthToken(@RequestParam String username, @RequestParam String email, @RequestParam String role)
     {
-        String nickname = values.get("nickname");
-        String email    = values.get("email");
-        String role     = values.get("role");
-
         String id = UUID.randomUUID().toString().replace("-", "");
         Date now = new Date();
         Date exp = Date.from(LocalDateTime.now().plusMinutes(30)
@@ -60,7 +79,7 @@ public class CAuth {
         claims.put("iat", now);
         claims.put("nbf", now);
         claims.put("exp", exp);
-        claims.put("nickname", nickname);
+        claims.put("nickname", username);
         claims.put("email", email);
         claims.put("role", role);
 
@@ -75,22 +94,40 @@ public class CAuth {
             //ignore
         }
 
-        return token;
+        return new TokenRes(token);
     }
 
     @GetMapping("/check")
-    public IsValidRes isValid(@RequestBody Map<String, String> values)
+    public IsValidRes isValid(@RequestHeader(value = "Authorization", required = false) String token)
     {
-        String token = values.get("token");
+        String valid = String.valueOf(isTokenValid(token));
+        return new IsValidRes(valid);
+    }
 
+    @GetMapping("/info")
+    public UserInfo getUserInfo(@RequestHeader(value = "Authorization", required = false) String token)
+    {
+        String[] chunks = token.split("\\.");
+        Base64.Decoder decoder = Base64.getUrlDecoder();
+        String dec = new String(decoder.decode(chunks[1]));
+        System.out.println(dec);
+        JSONObject obj = new JSONObject(dec);
+
+        String username = obj.getString("nickname");
+        String role = obj.getString("role");
+
+        return new UserInfo(username, role);
+    }
+
+    public boolean isTokenValid(String token)
+    {
         SecretKeySpec secretKeySpec = new SecretKeySpec(TextCodec.BASE64.decode(secret), sa.getJcaName());
         DefaultJwtSignatureValidator validator = new DefaultJwtSignatureValidator(sa, secretKeySpec);
 
         String[] chunks = token.split("\\.");
         String tokenWithoutSignature = chunks[0] + "." + chunks[1];
         String signature = chunks[2];
-        String valid = String.valueOf(validator.isValid(tokenWithoutSignature, signature));
-        return new IsValidRes(valid);
+        return validator.isValid(tokenWithoutSignature, signature);
     }
 
 }

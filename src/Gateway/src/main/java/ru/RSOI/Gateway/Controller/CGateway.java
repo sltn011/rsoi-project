@@ -30,9 +30,13 @@ import java.util.concurrent.TimeUnit;
 @RequestMapping("/api/v1")
 public class CGateway {
 
-    public static final String CarsService    = "http://10.96.184.168:8070/api/v1/sys/cars";
-    public static final String RentService    = "http://10.96.185.123:8060/api/v1/sys/rental";
-    public static final String PaymentService = "http://10.96.215.106:8050/api/v1/sys/payment";
+    public static final String CarsService    = "http://localhost:8070/api/v1/sys/cars";
+    public static final String RentService    = "http://localhost:8060/api/v1/sys/rental";
+    public static final String PaymentService = "http://localhost:8050/api/v1/sys/payment";
+    public static final String AccService     = "http://localhost:8010/api/v1/sys/acc";
+    public static final String StatsService   = "http://localhost:8100/api/v1/sys/stats/avgTime";
+
+    public static final String AuthService    = "http://localhost:9889/auth";
 
     private AvgTime avgTime;
 
@@ -45,6 +49,61 @@ public class CGateway {
     public String healthcheck()
     {
         return "Hello from gateway!";
+    }
+
+    @GetMapping("/register")
+    public String register(@RequestParam String username, @RequestParam String email, @RequestParam String password)
+    {
+        AvgTime avg = new AvgTime();
+        avg.begin();
+
+        if (checkUserExists(username))
+        {
+            throw new EBadRequestError("Username taken!", new ArrayList<>());
+        }
+
+        addUser(username, email, password);
+
+        String token = getUserToken(username, email, new String("USER"));
+        if (token.length() == 0)
+        {
+            throw new EBadRequestError("Error registering!", new ArrayList<>());
+        }
+
+        avg.end();
+        avgTime.add(avg.get());
+
+        return token;
+    }
+
+    @GetMapping("/login")
+    public String login(@RequestParam String username, @RequestParam String password)
+    {
+        AvgTime avg = new AvgTime();
+        avg.begin();
+
+        if (!checkUserExists(username))
+        {
+            throw new EBadRequestError("User not found!", new ArrayList<>());
+        }
+
+        JSONObject userInfo = getUserInfo(username);
+
+        if (!password.equals(userInfo.getString("password")))
+        {
+            throw new EBadRequestError("User not found!", new ArrayList<>());
+        }
+
+        String token = getUserToken(userInfo.getString("username"), userInfo.getString("email"), userInfo.getString("role"));
+        if (token.length() == 0)
+        {
+            throw new EBadRequestError("Error registering!", new ArrayList<>());
+        }
+
+        avg.end();
+        avgTime.add(avg.get());
+
+        return token;
     }
 
     @GetMapping("/cars")
@@ -264,20 +323,55 @@ public class CGateway {
     }
 
     @GetMapping("/stats")
-    public AvgTime.Info getAvgTime(@RequestHeader(value = "Authorization", required = false) String access_token)
+    public String getAvgTime(@RequestHeader(value = "Authorization", required = false) String access_token)
     {
         AvgTime avg = new AvgTime();
         avg.begin();
-        if (!IsValidToken(access_token))
+
+        String role = getRole(access_token);
+        if (role != "ADMIN")
         {
-            throw new EUnauthorized("Not authorized!");
+            avg.end();
+            avgTime.add(avg.get());
+            return new String();
         }
-        String username = getUsername(access_token);
-        AvgTime.Info res = new AvgTime.Info();
-        res.avgTime = avgTime.get();
+
+        String url = UriComponentsBuilder.fromHttpUrl(StatsService)
+                .toUriString();
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.set(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE);
+        HttpEntity<?> entity = new HttpEntity<>(headers);
+
+        RestOperations restOperations = new RestTemplate();
+        ResponseEntity<String> response;
+        try {
+            response  = restOperations.exchange(
+                    url,
+                    HttpMethod.GET,
+                    entity,
+                    String.class
+            );
+        }
+        catch (HttpClientErrorException e)
+        {
+            System.out.println(e);
+            return new String();
+        }
+        catch (HttpServerErrorException e)
+        {
+            System.out.println(e);
+            return new String();
+        }
+        catch (RestClientException e)
+        {
+            System.out.println(e);
+            return new String();
+        }
+
         avg.end();
         avgTime.add(avg.get());
-        return res;
+        return response.getBody();
     }
 
     private MRentCarInfo getRentCarInfo(String carUid)
@@ -838,17 +932,19 @@ public class CGateway {
 
     String getUsername(String access_token)
     {
-        String url = UriComponentsBuilder.fromHttpUrl("https://dev-dpvduigq7zb3kgk5.us.auth0.com/userinfo")
+        if (!IsValidToken(access_token))
+        {
+            return new String();
+        }
+
+        String url = UriComponentsBuilder.fromHttpUrl(AuthService + "/info")
                 .toUriString();
 
         HttpHeaders headers = new HttpHeaders();
         headers.set(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE);
-        headers.set(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_FORM_URLENCODED_VALUE);
-        headers.set(HttpHeaders.AUTHORIZATION, access_token);
-        HttpHeaders body = new HttpHeaders();
-        body.set("access_token", access_token.substring(7));
-        body.set("aud", "[\"https://dumbass-lab.com/api/v1\", \"https://dev-dpvduigq7zb3kgk5.us.auth0.com/userinfo\"]");
-        HttpEntity<?> entity = new HttpEntity<>(body, headers);
+        Map<String, String> values = new HashMap<>();
+        values.put("token", access_token);
+        HttpEntity<?> entity = new HttpEntity<>(values, headers);
 
         RestOperations restOperations = new RestTemplate();
         ResponseEntity<String> response;
@@ -863,50 +959,321 @@ public class CGateway {
         catch (HttpClientErrorException e)
         {
             System.out.println(e);
-            throw new EBadRequestError(e.toString(), new ArrayList<>());
+            return new String();
         }
         catch (HttpServerErrorException e)
         {
             System.out.println(e);
-            throw new EBadRequestError(e.toString(), new ArrayList<>());
+            return new String();
         }
         catch (RestClientException e)
         {
             System.out.println(e);
-            throw new EBadRequestError(e.toString(), new ArrayList<>());
-        }
-        if (response.getStatusCode() == HttpStatus.UNAUTHORIZED)
-        {
-            throw new EUnauthorized(response.getBody());
+            return new String();
         }
 
         JSONObject obj = new JSONObject(response.getBody());
-        return obj.getString("name");
+        if (!obj.has("username"))
+        {
+            return new String();
+        }
+        return obj.getString("username");
+    }
+
+    String getRole(String access_token)
+    {
+        if (!IsValidToken(access_token))
+        {
+            return new String();
+        }
+
+        String url = UriComponentsBuilder.fromHttpUrl(AuthService + "/info")
+                .toUriString();
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.set(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE);
+        Map<String, String> values = new HashMap<>();
+        values.put("token", access_token);
+        HttpEntity<?> entity = new HttpEntity<>(values, headers);
+
+        RestOperations restOperations = new RestTemplate();
+        ResponseEntity<String> response;
+        try {
+            response  = restOperations.exchange(
+                    url,
+                    HttpMethod.GET,
+                    entity,
+                    String.class
+            );
+        }
+        catch (HttpClientErrorException e)
+        {
+            System.out.println(e);
+            return new String();
+        }
+        catch (HttpServerErrorException e)
+        {
+            System.out.println(e);
+            return new String();
+        }
+        catch (RestClientException e)
+        {
+            System.out.println(e);
+            return new String();
+        }
+
+        JSONObject obj = new JSONObject(response.getBody());
+        if (!obj.has("role"))
+        {
+            return new String();
+        }
+        return obj.getString("role");
+    }
+
+    String getRoleByName(String username)
+    {
+        String url = UriComponentsBuilder.fromHttpUrl(AuthService + "/uname/" + username)
+                .toUriString();
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.set(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE);
+        HttpEntity<?> entity = new HttpEntity<>(headers);
+
+        RestOperations restOperations = new RestTemplate();
+        ResponseEntity<String> response;
+        try {
+            response  = restOperations.exchange(
+                    url,
+                    HttpMethod.GET,
+                    entity,
+                    String.class
+            );
+        }
+        catch (HttpClientErrorException e)
+        {
+            System.out.println(e);
+            return new String();
+        }
+        catch (HttpServerErrorException e)
+        {
+            System.out.println(e);
+            return new String();
+        }
+        catch (RestClientException e)
+        {
+            System.out.println(e);
+            return new String();
+        }
+
+        JSONObject obj = new JSONObject(response.getBody());
+        if (!obj.has("role"))
+        {
+            return new String();
+        }
+        return obj.getString("role");
     }
 
     boolean IsValidToken(String access_token)
     {
-        if (access_token == null)
-        {
-            return false;
-        }
-        try {
-            String token = access_token.substring(7);
-            DecodedJWT jwt = JWT.decode(token);
-            JwkProvider provider = new UrlJwkProvider("https://dev-dpvduigq7zb3kgk5.us.auth0.com");
-            Jwk jwk = provider.get(jwt.getKeyId());
-            Algorithm algorithm = Algorithm.RSA256((RSAPublicKey) jwk.getPublicKey(), null);
-            algorithm.verify(jwt);
+        String url = UriComponentsBuilder.fromHttpUrl(AuthService + "/check")
+                .toUriString();
 
-            if (jwt.getExpiresAt().before(Calendar.getInstance().getTime())) {
-                return false;
-            }
+        HttpHeaders headers = new HttpHeaders();
+        headers.set(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE);
+        headers.set(HttpHeaders.AUTHORIZATION, access_token);
+        HttpEntity<?> entity = new HttpEntity<>(headers);
+
+        RestOperations restOperations = new RestTemplate();
+        ResponseEntity<String> response;
+        try {
+            response  = restOperations.exchange(
+                    url,
+                    HttpMethod.GET,
+                    entity,
+                    String.class
+            );
         }
-        catch (Exception e)
+        catch (HttpClientErrorException e)
         {
             System.out.println(e);
             return false;
         }
-        return true;
+        catch (HttpServerErrorException e)
+        {
+            System.out.println(e);
+            return false;
+        }
+        catch (RestClientException e)
+        {
+            System.out.println(e);
+            return false;
+        }
+
+        JSONObject obj = new JSONObject(response.getBody());
+        if (!obj.has("valid"))
+        {
+            return false;
+        }
+        return Boolean.valueOf(obj.getString("valid"));
+    }
+
+    JSONObject getUserInfo(String username)
+    {
+        String url = UriComponentsBuilder.fromHttpUrl(AccService + "/uname/" + username)
+                .toUriString();
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.set(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE);
+        HttpEntity<?> entity = new HttpEntity<>(headers);
+
+        RestOperations restOperations = new RestTemplate();
+        ResponseEntity<String> response;
+        try {
+            response  = restOperations.exchange(
+                    url,
+                    HttpMethod.GET,
+                    entity,
+                    String.class
+            );
+        }
+        catch (HttpClientErrorException e)
+        {
+            System.out.println(e);
+            return new JSONObject();
+        }
+        catch (HttpServerErrorException e)
+        {
+            System.out.println(e);
+            return new JSONObject();
+        }
+        catch (RestClientException e)
+        {
+            System.out.println(e);
+            return new JSONObject();
+        }
+        return new JSONObject(response.getBody());
+    }
+
+    boolean checkUserExists(String username)
+    {
+        String url = UriComponentsBuilder.fromHttpUrl(AccService + "/uname/" + username)
+                .toUriString();
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.set(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE);
+        HttpEntity<?> entity = new HttpEntity<>(headers);
+
+        RestOperations restOperations = new RestTemplate();
+        ResponseEntity<String> response;
+        try {
+            response  = restOperations.exchange(
+                    url,
+                    HttpMethod.GET,
+                    entity,
+                    String.class
+            );
+        }
+        catch (HttpClientErrorException e)
+        {
+            System.out.println(e);
+            return false;
+        }
+        catch (HttpServerErrorException e)
+        {
+            System.out.println(e);
+            return false;
+        }
+        catch (RestClientException e)
+        {
+            System.out.println(e);
+            return false;
+        }
+        return response.getStatusCode() == HttpStatus.OK;
+    }
+
+    void addUser(String username, String email, String password)
+    {
+        String url = UriComponentsBuilder.fromHttpUrl(AccService + "/register")
+                .toUriString();
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.set(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE);
+        Map<String, String> values = new HashMap<>();
+        values.put("username", username);
+        values.put("email", email);
+        values.put("password", password);
+        HttpEntity<?> entity = new HttpEntity<>(values, headers);
+
+        RestOperations restOperations = new RestTemplate();
+        ResponseEntity<String> response;
+        try {
+            response  = restOperations.exchange(
+                    url,
+                    HttpMethod.POST,
+                    entity,
+                    String.class
+            );
+        }
+        catch (HttpClientErrorException e)
+        {
+            System.out.println(e);
+            return;
+        }
+        catch (HttpServerErrorException e)
+        {
+            System.out.println(e);
+            return;
+        }
+        catch (RestClientException e)
+        {
+            System.out.println(e);
+            return;
+        }
+    }
+
+    String getUserToken(String username, String email, String role)
+    {
+        String url = UriComponentsBuilder.fromHttpUrl(AuthService + "/get")
+                .queryParam("username", username)
+                .queryParam("email", email)
+                .queryParam("role", role)
+                .toUriString();
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.set(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE);
+        HttpEntity<?> entity = new HttpEntity<>(headers);
+
+        RestOperations restOperations = new RestTemplate();
+        ResponseEntity<String> response;
+        try {
+            response  = restOperations.exchange(
+                    url,
+                    HttpMethod.GET,
+                    entity,
+                    String.class
+            );
+        }
+        catch (HttpClientErrorException e)
+        {
+            System.out.println(e);
+            return new String();
+        }
+        catch (HttpServerErrorException e)
+        {
+            System.out.println(e);
+            return new String();
+        }
+        catch (RestClientException e)
+        {
+            System.out.println(e);
+            return new String();
+        }
+
+        JSONObject obj = new JSONObject(response.getBody());
+        if (!obj.has("token"))
+        {
+            return new String();
+        }
+        return obj.getString("token");
     }
 }

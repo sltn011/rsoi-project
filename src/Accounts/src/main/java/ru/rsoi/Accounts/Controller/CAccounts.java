@@ -37,17 +37,15 @@ public class CAccounts {
     }
 
     @GetMapping("/uname/{username}")
-    public MAccount getAccByUName(@PathVariable String uname)
+    public MAccount getAccByUName(@PathVariable String username)
     {
-        return findAccByUName(uname)
+        return findAccByUName(username)
                 .orElseThrow(() -> new EBadRequestError("Acc not found!", new ArrayList<>()));
     }
 
     @GetMapping("/login")
-    public MAccount login(@RequestBody Map<String, String> values)
+    public MAccount login(@RequestParam String username, @RequestParam String password)
     {
-        String username = values.get("username");
-        String password = values.get("password");
         return findAcc(username, password)
                 .orElseThrow(() -> new EBadRequestError("Acc not found!", new ArrayList<>()));
     }
@@ -126,6 +124,9 @@ public class CAccounts {
         }
         if (values.containsKey("password")) {
             acc.password = values.get("password");
+        }
+        if (values.containsKey("email")) {
+            acc.email = values.get("email");
         }
 
         return acc;

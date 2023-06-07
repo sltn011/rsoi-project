@@ -13,10 +13,7 @@ import java.util.UUID;
 @Repository
 public interface RAccounts extends JpaRepository<MAccount, Integer> {
 
-    @Query("SELECT c FROM MCar c where c.v8_availability = true")
-    public Page<MAccount> findAvailable(Pageable pageable);
-
-    @Query("SELECT c FROM MAccount c where c.acc_uid = ?1")
+    @Query("SELECT c FROM MAccount c where c.accuid = ?1")
     public List<MAccount> findAccByUid(UUID uid);
 
     @Query("SELECT c FROM MAccount c where c.username = ?1")

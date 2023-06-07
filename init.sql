@@ -34,6 +34,21 @@ CREATE TABLE payment
     price       INT         NOT NULL
 );
 
+CREATE TABLE public.accounts
+(
+    id          SERIAL PRIMARY KEY,
+    accUid      uuid UNIQUE              NOT NULL,
+    username    VARCHAR(20)              NOT NULL,
+    email       VARCHAR(40)              NOT NULL,
+    password    VARCHAR(20)              NOT NULL,
+    role        VARCHAR(8)               NOT NULL,
+        CHECK (role IN ('USER', 'ADMIN'))
+);
+
 INSERT INTO public.cars(
 	id, car_uid, brand, model, registration_number, power, price, type, availability)
-	VALUES (1, '109b42f3-198d-4c89-9276-a7520a7120ab', 'Mercedes Benz', 'GLA 250', 'ЛО777Х799', 249, 3500, 'SEDAN', true);
+	VALUES (0, '109b42f3-198d-4c89-9276-a7520a7120ab', 'Mercedes Benz', 'GLA 250', 'ЛО777Х799', 249, 3500, 'SEDAN', true);
+
+INSERT INTO public.accounts(
+	id, accUid, username, password, role)
+	VALUES (0, '9d10c23a-61ee-487d-8ed7-dd360298bc94', 'admin', 'admin', 'ADMIN');

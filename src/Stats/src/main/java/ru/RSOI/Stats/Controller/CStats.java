@@ -15,7 +15,7 @@ import ru.RSOI.Stats.Model.MAvgTime;
 import java.util.ArrayList;
 
 @RestController
-@RequestMapping("/api/v1/sys/acc")
+@RequestMapping("/api/v1/sys/stats")
 public class CStats {
 
     public static final String CarsService    = "http://10.96.184.168:8070/api/v1/sys/cars/stats";
