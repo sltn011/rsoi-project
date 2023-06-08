@@ -100,6 +100,7 @@ public class CAuth {
     @GetMapping("/check")
     public IsValidRes isValid(@RequestHeader(value = "Authorization", required = false) String token)
     {
+        System.out.println(token);
         String valid = String.valueOf(isTokenValid(token));
         return new IsValidRes(valid);
     }

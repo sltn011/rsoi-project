@@ -107,19 +107,11 @@ public class CGateway {
     }
 
     @GetMapping("/cars")
-    public MCarsPage getAvailableCars(@RequestHeader(value = "Authorization", required = false) String access_token,
-                                      @RequestParam int page, @RequestParam int size,
+    public MCarsPage getAvailableCars(@RequestParam int page, @RequestParam int size,
                                       @RequestParam(defaultValue = "false") boolean showAll)
     {
         AvgTime avg = new AvgTime();
         avg.begin();
-
-        if (!IsValidToken(access_token))
-        {
-            avg.end();
-            avgTime.add(avg.get());
-            throw new EUnauthorized("Not authorized!");
-        }
 
         String url = UriComponentsBuilder.fromHttpUrl(CarsService)
                 .queryParam("page", page)
@@ -200,6 +192,11 @@ public class CGateway {
     {
         AvgTime avg = new AvgTime();
         avg.begin();
+
+        System.out.println(access_token);
+        access_token = fixToken(access_token);
+        System.out.println(access_token);
+
         if (!IsValidToken(access_token))
         {
             avg.end();
@@ -219,6 +216,10 @@ public class CGateway {
     {
         AvgTime avg = new AvgTime();
         avg.begin();
+
+        System.out.println(access_token);
+        access_token = fixToken(access_token);
+        System.out.println(access_token);
 
         if (!IsValidToken(access_token))
         {
@@ -261,6 +262,10 @@ public class CGateway {
         AvgTime avg = new AvgTime();
         avg.begin();
 
+        System.out.println(access_token);
+        access_token = fixToken(access_token);
+        System.out.println(access_token);
+
         if (!IsValidToken(access_token))
         {
             avg.end();
@@ -284,6 +289,11 @@ public class CGateway {
     {
         AvgTime avg = new AvgTime();
         avg.begin();
+
+        System.out.println(access_token);
+        access_token = fixToken(access_token);
+        System.out.println(access_token);
+
         if (!IsValidToken(access_token))
         {
             throw new EUnauthorized("Not authorized!");
@@ -307,6 +317,11 @@ public class CGateway {
     {
         AvgTime avg = new AvgTime();
         avg.begin();
+
+        System.out.println(access_token);
+        access_token = fixToken(access_token);
+        System.out.println(access_token);
+
         if (!IsValidToken(access_token))
         {
             throw new EUnauthorized("Not authorized!");
@@ -327,6 +342,10 @@ public class CGateway {
     {
         AvgTime avg = new AvgTime();
         avg.begin();
+
+        System.out.println(access_token);
+        access_token = fixToken(access_token);
+        System.out.println(access_token);
 
         String role = getRole(access_token);
         if (role != "ADMIN")
@@ -637,7 +656,7 @@ public class CGateway {
 
     MRentInfo getUserRentByUid(String username, String rentalUid)
     {
-        List<MRentInfo> allUserRents = getAllUserRents(username);
+        List<MRentInfo> allUserRents = getAllUserRentsList(username);
         for (MRentInfo rentInfo : allUserRents)
         {
             if (rentalUid.equals(rentInfo.rentalUid.toString()))
@@ -932,19 +951,13 @@ public class CGateway {
 
     String getUsername(String access_token)
     {
-        if (!IsValidToken(access_token))
-        {
-            return new String();
-        }
-
         String url = UriComponentsBuilder.fromHttpUrl(AuthService + "/info")
                 .toUriString();
 
         HttpHeaders headers = new HttpHeaders();
         headers.set(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE);
-        Map<String, String> values = new HashMap<>();
-        values.put("token", access_token);
-        HttpEntity<?> entity = new HttpEntity<>(values, headers);
+        headers.set(HttpHeaders.AUTHORIZATION, access_token);
+        HttpEntity<?> entity = new HttpEntity<>(headers);
 
         RestOperations restOperations = new RestTemplate();
         ResponseEntity<String> response;
@@ -982,61 +995,12 @@ public class CGateway {
 
     String getRole(String access_token)
     {
-        if (!IsValidToken(access_token))
-        {
-            return new String();
-        }
-
         String url = UriComponentsBuilder.fromHttpUrl(AuthService + "/info")
                 .toUriString();
 
         HttpHeaders headers = new HttpHeaders();
         headers.set(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE);
-        Map<String, String> values = new HashMap<>();
-        values.put("token", access_token);
-        HttpEntity<?> entity = new HttpEntity<>(values, headers);
-
-        RestOperations restOperations = new RestTemplate();
-        ResponseEntity<String> response;
-        try {
-            response  = restOperations.exchange(
-                    url,
-                    HttpMethod.GET,
-                    entity,
-                    String.class
-            );
-        }
-        catch (HttpClientErrorException e)
-        {
-            System.out.println(e);
-            return new String();
-        }
-        catch (HttpServerErrorException e)
-        {
-            System.out.println(e);
-            return new String();
-        }
-        catch (RestClientException e)
-        {
-            System.out.println(e);
-            return new String();
-        }
-
-        JSONObject obj = new JSONObject(response.getBody());
-        if (!obj.has("role"))
-        {
-            return new String();
-        }
-        return obj.getString("role");
-    }
-
-    String getRoleByName(String username)
-    {
-        String url = UriComponentsBuilder.fromHttpUrl(AuthService + "/uname/" + username)
-                .toUriString();
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.set(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE);
+        headers.set(HttpHeaders.AUTHORIZATION, access_token);
         HttpEntity<?> entity = new HttpEntity<>(headers);
 
         RestOperations restOperations = new RestTemplate();
@@ -1275,5 +1239,14 @@ public class CGateway {
             return new String();
         }
         return obj.getString("token");
+    }
+
+    String fixToken(String token)
+    {
+        if (token.substring(0, "Bearer ".length()).equals("Bearer "))
+        {
+            token = token.substring("Bearer ".length());
+        }
+        return token;
     }
 }
