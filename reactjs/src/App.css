@@ -35,6 +35,18 @@
   color: #61dafb;
 }
 
+.Cars-table {
+  width: 100%;
+}
+
+.Cars-table-th {
+  padding-top: 12px;
+  padding-bottom: 12px;
+  text-align: left;
+  background-color: #4a5261;
+  color: white;
+}
+
 @keyframes App-logo-spin {
   from {
     transform: rotate(0deg);

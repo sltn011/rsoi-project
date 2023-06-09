@@ -1,12 +1,6 @@
 package ru.RSOI.Gateway.Controller;
 
 import Utils.AvgTime;
-import com.auth0.jwk.Jwk;
-import com.auth0.jwk.JwkProvider;
-import com.auth0.jwk.UrlJwkProvider;
-import com.auth0.jwt.JWT;
-import com.auth0.jwt.algorithms.Algorithm;
-import com.auth0.jwt.interfaces.DecodedJWT;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.springframework.http.*;
@@ -46,12 +40,14 @@ public class CGateway {
     }
 
     @GetMapping("/hello")
+    @CrossOrigin(origins = "*")
     public String healthcheck()
     {
         return "Hello from gateway!";
     }
 
     @GetMapping("/register")
+    @CrossOrigin(origins = "*")
     public String register(@RequestParam String username, @RequestParam String email, @RequestParam String password)
     {
         AvgTime avg = new AvgTime();
@@ -77,6 +73,7 @@ public class CGateway {
     }
 
     @GetMapping("/login")
+    @CrossOrigin(origins = "*")
     public String login(@RequestParam String username, @RequestParam String password)
     {
         AvgTime avg = new AvgTime();
@@ -107,6 +104,7 @@ public class CGateway {
     }
 
     @GetMapping("/cars")
+    @CrossOrigin(origins = "*")
     public MCarsPage getAvailableCars(@RequestParam int page, @RequestParam int size,
                                       @RequestParam(defaultValue = "false") boolean showAll)
     {
@@ -188,6 +186,7 @@ public class CGateway {
     }
 
     @GetMapping("/rental")
+    @CrossOrigin(origins = "*")
     public List<MRentInfo> getAllUserRents(@RequestHeader(value = "Authorization", required = false) String access_token)
     {
         AvgTime avg = new AvgTime();
@@ -211,6 +210,7 @@ public class CGateway {
     }
 
     @PostMapping("/rental")
+    @CrossOrigin(origins = "*")
     public MRentSuccess tryRenting(@RequestHeader(value = "Authorization", required = false) String access_token,
                                    @RequestBody Map<String, String> values)
     {
@@ -256,6 +256,7 @@ public class CGateway {
     }
 
     @GetMapping("/rental/{rentalUid}")
+    @CrossOrigin(origins = "*")
     public MRentInfo getUserRent(@RequestHeader(value = "Authorization", required = false) String access_token,
                                  @PathVariable String rentalUid)
     {
@@ -283,6 +284,7 @@ public class CGateway {
     @DeleteMapping("/rental/{rentalUid}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @ResponseBody
+    @CrossOrigin(origins = "*")
     public void cancelUserRent(@RequestHeader(value = "Authorization", required = false) String access_token,
                                @PathVariable String rentalUid)
 
@@ -312,6 +314,7 @@ public class CGateway {
 
     @PostMapping("/rental/{rentalUid}/finish")
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @CrossOrigin(origins = "*")
     public void finishUserRent(@RequestHeader(value = "Authorization", required = false) String access_token,
                                @PathVariable String rentalUid)
     {
@@ -338,6 +341,7 @@ public class CGateway {
     }
 
     @GetMapping("/stats")
+    @CrossOrigin(origins = "*")
     public String getAvgTime(@RequestHeader(value = "Authorization", required = false) String access_token)
     {
         AvgTime avg = new AvgTime();
