@@ -31,6 +31,17 @@
   font-size: 16px;
 }
 
+.Text_input {
+  background-color: #4a5261;
+  color: white;
+  opacity: 1;
+  padding: 15px 32px;
+  text-align: left;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 14px;
+}
+
 .App-link {
   color: #61dafb;
 }

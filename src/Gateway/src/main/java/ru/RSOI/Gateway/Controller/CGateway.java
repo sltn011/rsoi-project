@@ -66,10 +66,13 @@ public class CGateway {
             throw new EBadRequestError("Error registering!", new ArrayList<>());
         }
 
+        JSONObject res = new JSONObject();
+        res.put("token", token);
+
         avg.end();
         avgTime.add(avg.get());
 
-        return token;
+        return res.toString();
     }
 
     @GetMapping("/login")
@@ -97,10 +100,13 @@ public class CGateway {
             throw new EBadRequestError("Error registering!", new ArrayList<>());
         }
 
+        JSONObject res = new JSONObject();
+        res.put("token", token);
+
         avg.end();
         avgTime.add(avg.get());
 
-        return token;
+        return res.toString();
     }
 
     @GetMapping("/cars")
