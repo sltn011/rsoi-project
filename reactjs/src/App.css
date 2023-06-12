@@ -58,6 +58,15 @@
   color: white;
 }
 
+.Cars-table-th-b {
+  padding-top: 12px;
+  padding-bottom: 12px;
+  text-align: left;
+  background-color: #4a5261;
+  color: white;
+  font-weight: bold;
+}
+
 @keyframes App-logo-spin {
   from {
     transform: rotate(0deg);

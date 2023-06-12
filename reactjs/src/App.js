@@ -249,19 +249,71 @@ const logout_user = () => {
   document.getElementById('logout_button').style.display = 'none'
 }
 
+const rent_car = async (index) => {
+  if (user_state.user_token.length === 0)
+  {
+    alert('Авторизуйтесь для аренды!')
+    return
+  }
+  
+  console.log(cars.items[index])
+}
+
 const carsToTable = () => {
-  var res = ""
+  let table = document.getElementById('t_cars')
+  table.innerHTML = ""
+
+  let thead = table.insertRow(0)
+
+  let th0 = thead.insertCell()
+  th0.className='Cars-table-th-b'
+  th0.textContent='Марка'
+  let th1 = thead.insertCell()
+  th1.className='Cars-table-th-b'
+  th1.textContent='Модель'
+  let th2 = thead.insertCell()
+  th2.className='Cars-table-th-b'
+  th2.textContent='Кузов'
+  let th3 = thead.insertCell()
+  th3.className='Cars-table-th-b'
+  th3.textContent='Мощность'
+  let th4 = thead.insertCell()
+  th4.className='Cars-table-th-b'
+  th4.textContent='Цена аренды за день'
+  let th5 = thead.insertCell()
+  th5.className='Cars-table-th-b'
+
   for (let i = 0; i < cars['items'].length; i++)
   {
-      res += "<tr>"
-      res += "<th className='Cars-table-th'>" + cars['items'][i]['brand'] + "</th>"
-      res += "<th className='Cars-table-th'>" + cars['items'][i]['model'] + "</th>"
-      res += "<th className='Cars-table-th'>" + cars['items'][i]['type'] + "</th>"
-      res += "<th className='Cars-table-th'>" + cars['items'][i]['power'] + "</th>"
-      res += "<th className='Cars-table-th'>" + cars['items'][i]['price'] + "</th>"
-      res += "</tr>"
+    let row = table.insertRow(i+1)
+
+    let c0 = row.insertCell()
+    c0.className='Cars-table-th'
+    c0.textContent=cars['items'][i]['brand']
+    
+    let c1 = row.insertCell()
+    c1.className='Cars-table-th'
+    c1.textContent=cars['items'][i]['model']
+    
+    let c2 = row.insertCell()
+    c2.className='Cars-table-th'
+    c2.textContent=cars['items'][i]['type']
+    
+    let c3 = row.insertCell()
+    c3.className='Cars-table-th'
+    c3.textContent=cars['items'][i]['power']
+    
+    let c4 = row.insertCell()
+    c4.className='Cars-table-th'
+    c4.textContent=cars['items'][i]['price']
+    
+    let c5_b = document.createElement("button")
+    c5_b.id = "b_" + String(i)
+    c5_b.textContent='Арендовать'
+    c5_b.className='Cars-table-th'
+    c5_b.onclick=function(){rent_car(i)}
+    row.append(c5_b)
   }
-  document.getElementById('cars_table').innerHTML = res;
 }
 
 window.onload = async () => {
@@ -318,14 +370,7 @@ function App() {
         </button>
         <br></br>
         <br></br>
-        <table className='Cars-table'>
-        <thead><tr>
-        <th className='Cars-table-th'> Марка </th>
-        <th className='Cars-table-th'> Модель </th>
-        <th className='Cars-table-th'> Кузов </th>
-        <th className='Cars-table-th'> Мощность </th>
-        <th className='Cars-table-th'> Цена аренды за день </th>
-        </tr></thead>
+        <table id={'t_cars'} className='Cars-table'>
         <tbody id={'cars_table'}>
         </tbody>
         </table>
