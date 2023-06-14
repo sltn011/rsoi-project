@@ -42,12 +42,25 @@
   font-size: 14px;
 }
 
+.UISelector {
+  background-color: #4a5261;
+  color: white;
+  opacity: 1;
+  padding: 15px 32px;
+  text-align: left;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 14px;
+}
+
 .App-link {
   color: #61dafb;
 }
 
 .Cars-table {
   width: 100%;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .Cars-table-th {
