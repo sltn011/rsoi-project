@@ -189,6 +189,71 @@ public class CGateway {
         return carsPage;
     }
 
+    @GetMapping("/car")
+    public MCarInfo getCarByUID(@RequestParam String uid)
+    {
+        AvgTime avg = new AvgTime();
+        avg.begin();
+
+        String url = UriComponentsBuilder.fromHttpUrl(CarsService + "/" + uid)
+                .toUriString();
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.set(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE);
+        HttpEntity<?> entity = new HttpEntity<>(headers);
+
+        RestOperations restOperations = new RestTemplate();
+        ResponseEntity<String> response;
+        try {
+            response  = restOperations.exchange(
+                    url,
+                    HttpMethod.GET,
+                    entity,
+                    String.class
+            );
+        }
+        catch (HttpClientErrorException e)
+        {
+            System.out.println(e);
+            avg.end();
+            avgTime.add(avg.get());
+            throw new EBadRequestError(e.toString(), new ArrayList<>());
+        }
+        catch (HttpServerErrorException e)
+        {
+            System.out.println(e);
+            avg.end();
+            avgTime.add(avg.get());
+            throw new EBadRequestError(e.toString(), new ArrayList<>());
+        }
+        catch (RestClientException e)
+        {
+            System.out.println(e);
+            avg.end();
+            avgTime.add(avg.get());
+            throw new EBadRequestError(e.toString(), new ArrayList<>());
+        }
+        if (response.getStatusCode() == HttpStatus.NOT_FOUND)
+        {
+            avg.end();
+            avgTime.add(avg.get());
+            throw new ENotFoundError(response.getBody());
+        }
+        if (response.getStatusCode() == HttpStatus.BAD_REQUEST)
+        {
+            avg.end();
+            avgTime.add(avg.get());
+            throw new EBadRequestError(response.getBody(), new ArrayList<>());
+        }
+
+        JSONObject obj = new JSONObject(response.getBody());
+        MCarInfo carInfo = parseCarInfo(obj);
+
+        avg.end();
+        avgTime.add(avg.get());
+        return carInfo;
+    }
+
     @GetMapping("/rental")
     public List<MRentInfo> getAllUserRents(@RequestHeader(value = "Authorization", required = false) String access_token)
     {

@@ -9,7 +9,7 @@ public class MCar {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private int id = -1;
+    public int id = -1;
 
     @Column(name = "car_uid", columnDefinition = "uuid UNIQUE NOT NULL")
     public UUID v1_car_uid = UUID.randomUUID();

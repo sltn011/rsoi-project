@@ -11,6 +11,8 @@ class CarsRent extends React.Component {
             page: 1,
             perpage: 5,
             cars: {'items': []},
+            user_rents: {'items': []},
+            user_rented_cars: {'items': []},
 
             ui_state_cars: 'ui_state_cars',
             ui_state_rent: 'ui_state_rent',
@@ -21,7 +23,7 @@ class CarsRent extends React.Component {
 
             user_state: {
               "username": "",
-              "user_token": ""
+              "user_token": "",
             },
         }
     }
@@ -94,7 +96,7 @@ class CarsRent extends React.Component {
       }
       
       getCars = async () => {
-        console.log('page ' + this.state.page)
+        console.log('getCars page ' + this.state.page)
         try {
           const response = await fetch('http://localhost:8080/api/v1/cars?page=' + String(this.state.page) +'&size=' + String(this.state.perpage) + '&showAll=true', {
             method: 'GET',
@@ -118,6 +120,61 @@ class CarsRent extends React.Component {
           return {}
         }
       };
+
+      getUserRents = async () => {
+        try {
+          const response = await fetch('http://localhost:8080/api/v1/rental', {
+            method: 'GET',
+            headers: {
+              Accept: 'application/json',
+              Authorization: this.state.user_state.user_token
+            },
+          });
+      
+          if (!response.ok) {
+            throw new Error(`Error! status: ${response.status}`);
+          }
+      
+          const result = await response.json();
+      
+          return result
+      
+        } catch (err) {
+          alert("Сервис аренд не доступен!")
+        }
+      }
+
+      getUserRentedCars = async() => {
+        let res = {}
+        for (let i = 0; i < this.state.user_rents.length; i++)
+        {
+          let rent = this.state.user_rents[i]
+          let rent_uid = rent['rentalUid']
+          let car_uid = rent['car']['carUid']
+
+          let url_str = 'http://localhost:8080/api/v1/car?uid=' + car_uid
+          
+          try {
+            const response = await fetch(url_str, {
+              method: 'GET',
+              headers: {
+                Accept: 'application/json'
+              },
+            });
+        
+            if (!response.ok) {
+              throw new Error(`Error! status: ${response.status}`);
+            }
+        
+            const car = await response.json();
+            res[rent_uid] = car
+        
+          } catch (err) {
+            alert("Сервис автомобилей не доступен!")
+          }
+        }
+        return res
+      }
       
       login_user = async () => {
         let username = document.getElementById('nick_input').value
@@ -187,6 +244,12 @@ class CarsRent extends React.Component {
         } catch (err) {
           console.log(err.message);
         }
+
+        this.getUserRents()
+        .then((res) => this.state.user_rents = res)
+        .then(() => this.getUserRentedCars())
+        .then((res2) => this.state.user_rented_cars = res2)
+
       }
       
       validate_email = (mail) =>
@@ -352,14 +415,13 @@ class CarsRent extends React.Component {
         }
 
         return (
-          <table id='cars_table' className="Cars-table">
+          <table id='cars_table' className="App-table">
             {this.carsTableHeader()}
             {this.carsTableBody()}
           </table>
         )
       }
      
-
       getCarsUI = () => {
         return (
           <React.Fragment>
@@ -381,11 +443,71 @@ class CarsRent extends React.Component {
           </React.Fragment>
         )
       }
+
+      userRentsTableHeader = () => {
+        let header_names = ['Марка', "Модель", "Статус", "Начало", "Конец", ""]
+
+        const user_rents_table_hcontent = () => {
+          return (
+            header_names.map((data) => {
+              return <th key={data}>{data}</th>
+            })
+          )
+        }
+
+        return (
+          <thead>
+            <tr>
+              {user_rents_table_hcontent()}
+            </tr>
+          </thead>
+        )
+      }
+
+      userRentsTableBody = () => {
+        const user_rents_table_content = () => {
+          return this.state.user_rents.map((c) => {
+            return(
+              <tr key={'b_' + c['rentalUid']}>
+                <td>{this.state.user_rented_cars[c['rentalUid']]['brand']}</td>
+                <td>{this.state.user_rented_cars[c['rentalUid']]['model']}</td>
+                <td>{c['status']}</td>
+                <td>{c['dateFrom']}</td>
+                <td>{c['dateTo']}</td>
+              </tr>
+            )
+          })
+        }
+
+        return (
+          <tbody>
+            {user_rents_table_content()}
+          </tbody>
+        )
+
+      }
+
+      userRentsTable = () => {
+        if (this.state.user_state.user_token.length == 0)
+        {
+          return <h3>Вы не авторизованы в системе!</h3>
+        }
+
+        return (
+          <table id='user_rents_table' className="App-table">
+            {this.userRentsTableHeader()}
+            {this.userRentsTableBody()}
+          </table>
+        )
+      }
       
       getUserRentsUI = () => {
         return (
           <React.Fragment>
-            <h1>Ваши аренды</h1>
+            <p>Ваши аренды</p>
+            <br></br>
+            <br></br>
+            {this.userRentsTable()}
           </React.Fragment>
         )
       }

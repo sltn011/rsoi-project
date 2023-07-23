@@ -38,12 +38,13 @@ public class CCar {
         return res;
     }
 
-    @GetMapping("/{carUid}")
+    @GetMapping("{carUid}")
     public MCar getCar(@PathVariable String carUid)
     {
         AvgTime avg = new AvgTime();
         avg.begin();
-        Optional<MCar> res = findCar(UUID.fromString(carUid));
+        UUID uuid = UUID.fromString(carUid);
+        Optional<MCar> res = findCar(uuid);
         avg.end();
         avgTime.add(avg.get());
         if (!res.isPresent()) throw new EBadRequestError("Car not found!", new ArrayList<>());
