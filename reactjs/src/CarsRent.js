@@ -19,6 +19,7 @@ class CarsRent extends React.Component {
             ui_state_user_rents: 'ui_state_user_rents',
             ui_state_user_rent: 'ui_state_user_rent',
             ui_state_stats: 'ui_state_stats',
+            ui_state_loading: 'ui_state_loading',
             ui_state: 'ui_state_cars',
 
             user_state: {
@@ -47,6 +48,27 @@ class CarsRent extends React.Component {
         });
     
         await promise
+    }
+
+    switchWithDataFetch = async(next_state, func, ...args) => {
+      await this.awaitSetState({ui_state: this.state.ui_state_loading})
+
+      await func(...args)
+
+      await this.awaitSetState({ui_state: next_state})
+      return
+    }
+
+    updateUserRentsData = async() => {
+      if (this.state.user_state.user_token.length === 0)
+        return 0
+
+      let user_rents = await this.getUserRents()
+      this.state.user_rents = user_rents
+      let user_rented_cars = await this.getUserRentedCars()
+      this.state.user_rented_cars = user_rented_cars
+
+      return 0
     }
 
     updateCarsTableData () {
@@ -245,11 +267,6 @@ class CarsRent extends React.Component {
           console.log(err.message);
         }
 
-        this.getUserRents()
-        .then((res) => this.state.user_rents = res)
-        .then(() => this.getUserRentedCars())
-        .then((res2) => this.state.user_rented_cars = res2)
-
       }
       
       validate_email = (mail) =>
@@ -364,6 +381,14 @@ class CarsRent extends React.Component {
         console.log(car)
       }
 
+      finish_rent = (rent_id) => {
+        console.log('Finish rent ' + rent_id)
+      }
+
+      cancel_rent = (rent_id) => {
+        console.log('Cancel rent ' + rent_id)
+      }
+
       carsTableHeader = () => {
         let header_names = ['Марка', "Модель", "Кузов", "Мощность", "Цена аренды за день", ""]
 
@@ -445,7 +470,7 @@ class CarsRent extends React.Component {
       }
 
       userRentsTableHeader = () => {
-        let header_names = ['Марка', "Модель", "Статус", "Начало", "Конец", ""]
+        let header_names = ['Марка', "Модель", "Статус", "Начало", "Конец", "Завершить"]
 
         const user_rents_table_hcontent = () => {
           return (
@@ -467,13 +492,32 @@ class CarsRent extends React.Component {
       userRentsTableBody = () => {
         const user_rents_table_content = () => {
           return this.state.user_rents.map((c) => {
+            let rent_status = c['status']
+            let descr = rent_status === 'IN_PROGRESS' ? 'Текущая' : (rent_status === 'FINISHED' ? 'Истекла' : 'Отменена')
+            let b_can_cancel = Date.parse(c['dateFrom']) > Date.now()
+            let b_finished = rent_status !== 'IN_PROGRESS'
+
+            let action = <h6> </h6>
+            if (!b_finished)
+            {
+              if (b_can_cancel)
+              {
+                action = <button id={'r_' + c['rentalUid']} onClick={() => this.cancel_rent(c['rentalUid'])}>Отмена</button>
+              }
+              else
+              {
+                action = <button id={'r_' + c['rentalUid']} onClick={() => this.finish_rent_rent(c['rentalUid'])}>Завершить</button>
+              }
+            }
+
             return(
-              <tr key={'b_' + c['rentalUid']}>
+              <tr key={'r_' + c['rentalUid']}>
                 <td>{this.state.user_rented_cars[c['rentalUid']]['brand']}</td>
                 <td>{this.state.user_rented_cars[c['rentalUid']]['model']}</td>
-                <td>{c['status']}</td>
+                <td>{descr}</td>
                 <td>{c['dateFrom']}</td>
                 <td>{c['dateTo']}</td>
+                <td>{action}</td>
               </tr>
             )
           })
@@ -488,7 +532,7 @@ class CarsRent extends React.Component {
       }
 
       userRentsTable = () => {
-        if (this.state.user_state.user_token.length == 0)
+        if (this.state.user_state.user_token.length === 0)
         {
           return <h3>Вы не авторизованы в системе!</h3>
         }
@@ -511,10 +555,20 @@ class CarsRent extends React.Component {
           </React.Fragment>
         )
       }
+
+      getLoadingUI = () => {
+        return (
+          <React.Fragment>
+            <p>Обработка запроса</p>
+          </React.Fragment>
+        )
+      }
       
       getCurrentUI () {
         switch (this.state.ui_state)
         {
+          case this.state.ui_state_loading:
+            return this.getLoadingUI()
           case this.state.ui_state_cars:
             this.updateCarsTableData()
             return this.getCarsUI()
@@ -560,7 +614,7 @@ class CarsRent extends React.Component {
         <button className='UISelector' onClick={async () => await this.awaitSetState({ui_state: this.state.ui_state_cars, page: 1})}>
           Автомобили
         </button>
-        <button className='UISelector' onClick={async () => await this.awaitSetState({ui_state: this.state.ui_state_user_rents})}>
+        <button className='UISelector' onClick={async () => await this.switchWithDataFetch(this.state.ui_state_user_rents, this.updateUserRentsData)}>
           Ваши аренды
         </button>
 
