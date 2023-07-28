@@ -13,10 +13,12 @@ class CarsRent extends React.Component {
             cars: {'items': []},
             user_rents: {'items': []},
             user_rented_cars: {'items': []},
+            user_selected_rent_info : {},
 
             ui_state_cars: 'ui_state_cars',
             ui_state_rent: 'ui_state_rent',
             ui_state_user_rents: 'ui_state_user_rents',
+            ui_state_selected_rent_info: 'ui_state_selected_rent_info',
             ui_state_user_rent: 'ui_state_user_rent',
             ui_state_stats: 'ui_state_stats',
             ui_state_loading: 'ui_state_loading',
@@ -71,6 +73,29 @@ class CarsRent extends React.Component {
       return 0
     }
 
+    getUserRentInfo = async(rent_uuid) => {
+      let url_str = 'http://localhost:8080/api/v1/rental/' + rent_uuid
+          
+          try {
+            const response = await fetch(url_str, {
+              method: 'GET',
+              headers: {
+                Accept: 'application/json',
+                Authorization: this.state.user_state.user_token
+              },
+            });
+        
+            if (!response.ok) {
+              throw new Error(`Error! status: ${response.status}`);
+            }
+        
+            this.state.user_selected_rent_info = await response.json();
+            
+          } catch (err) {
+            alert("Сервис автомобилей не доступен!")
+          }
+    }
+
     updateCarsTableData () {
         if (document.getElementById('page_number'))
         {
@@ -109,7 +134,6 @@ class CarsRent extends React.Component {
       pageIncr = async () => {
         if (this.state.cars['items'].length === this.state.perpage)
         {
-            console.log('upd')
             await this.awaitSetState({page: this.state.page + 1})
             let newcars = await this.getCars()
             await this.awaitSetState({cars: newcars})
@@ -470,7 +494,7 @@ class CarsRent extends React.Component {
       }
 
       userRentsTableHeader = () => {
-        let header_names = ['Марка', "Модель", "Статус", "Начало", "Конец", "Завершить"]
+        let header_names = ["Информация", "Статус", "Начало", "Конец", "Завершить"]
 
         const user_rents_table_hcontent = () => {
           return (
@@ -497,6 +521,12 @@ class CarsRent extends React.Component {
             let b_can_cancel = Date.parse(c['dateFrom']) > Date.now()
             let b_finished = rent_status !== 'IN_PROGRESS'
 
+            let info = (
+              <button id={'i_' + c['rentalUid']} onClick={async () => { 
+                await this.switchWithDataFetch(this.state.ui_state_selected_rent_info, this.getUserRentInfo, c['rentalUid'])
+              }}>Информация</button>
+            )
+
             let action = <h6> </h6>
             if (!b_finished)
             {
@@ -512,8 +542,7 @@ class CarsRent extends React.Component {
 
             return(
               <tr key={'r_' + c['rentalUid']}>
-                <td>{this.state.user_rented_cars[c['rentalUid']]['brand']}</td>
-                <td>{this.state.user_rented_cars[c['rentalUid']]['model']}</td>
+                <td>{info}</td>
                 <td>{descr}</td>
                 <td>{c['dateFrom']}</td>
                 <td>{c['dateTo']}</td>
@@ -556,6 +585,32 @@ class CarsRent extends React.Component {
         )
       }
 
+      getUserSelectedRentInfoUI = () => {
+        if (this.state.user_selected_rent_info === {})
+        {
+          return (
+          <React.Fragment>
+            <p>Ошибка</p>
+          </React.Fragment>
+          )
+        }
+        
+        let rent = this.state.user_selected_rent_info
+        return (
+          <React.Fragment>
+            <p>Информация об аренде</p>
+            <br></br>
+            <div>{`Автомобиль: ${rent['car']['brand']} ${rent['car']['model']}`}</div>
+            <br></br>
+            <div>{`Срок аренды: ${rent['dateFrom']} - ${rent['dateTo']}`}</div>
+            <div>{`Статус: ${rent['status'] === 'IN_PROGRESS' ? 'Текущая' : (rent['status'] === 'FINISHED' ? 'Истекла' : 'Отменена')}`}</div>
+            <br></br>
+            <div>{`Оплата: Цена ${rent['payment']['price']}руб`}</div>
+            <div>{`Статус: ${rent['payment']['status'] === 'PAID' ? 'Оплачено' : 'Отменено'}`}</div>
+          </React.Fragment>
+        )
+      }
+
       getLoadingUI = () => {
         return (
           <React.Fragment>
@@ -574,6 +629,8 @@ class CarsRent extends React.Component {
             return this.getCarsUI()
           case this.state.ui_state_user_rents:
             return this.getUserRentsUI()
+          case this.state.ui_state_selected_rent_info:
+            return this.getUserSelectedRentInfoUI()
           default:
             return (<h1>ERROR</h1>)
         }
