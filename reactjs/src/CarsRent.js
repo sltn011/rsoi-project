@@ -14,12 +14,13 @@ class CarsRent extends React.Component {
             user_rents: {'items': []},
             user_rented_cars: {'items': []},
             user_selected_rent_info : {},
+            car_for_rent : {},
 
             ui_state_cars: 'ui_state_cars',
             ui_state_rent: 'ui_state_rent',
             ui_state_user_rents: 'ui_state_user_rents',
             ui_state_selected_rent_info: 'ui_state_selected_rent_info',
-            ui_state_user_rent: 'ui_state_user_rent',
+            ui_state_create_rent: 'ui_state_create_rent',
             ui_state_stats: 'ui_state_stats',
             ui_state_loading: 'ui_state_loading',
             ui_state: 'ui_state_cars',
@@ -94,6 +95,52 @@ class CarsRent extends React.Component {
           } catch (err) {
             alert("Сервис автомобилей не доступен!")
           }
+    }
+
+    finish_rent_action = async(rent_uuid) => {
+      let url_str = 'http://localhost:8080/api/v1/rental/' + rent_uuid + '/finish'
+          
+          try {
+            const response = await fetch(url_str, {
+              method: 'POST',
+              headers: {
+                Accept: 'application/json',
+                Authorization: this.state.user_state.user_token
+              },
+            });
+        
+            if (response.status !== 204) {
+              throw new Error(`Error! status: ${response.status}`);
+            }
+            
+          } catch (err) {
+            alert("Сервис аренд не доступен!")
+          }
+
+        await this.updateUserRentsData()
+    }
+
+    cancel_rent_action = async(rent_uuid) => {
+      let url_str = 'http://localhost:8080/api/v1/rental/' + rent_uuid
+          
+          try {
+            const response = await fetch(url_str, {
+              method: 'DELETE',
+              headers: {
+                Accept: 'application/json',
+                Authorization: this.state.user_state.user_token
+              },
+            });
+        
+            if (response.status !== 204) {
+              throw new Error(`Error! status: ${response.status}`);
+            }
+            
+          } catch (err) {
+            alert("Сервис аренд не доступен!")
+          }
+
+      await this.updateUserRentsData()
     }
 
     updateCarsTableData () {
@@ -382,17 +429,32 @@ class CarsRent extends React.Component {
           console.log(err.message);
         }
       }
+
+      getDateStr = (date) => {
+        let day = String(date.getDate());
+        let month = String(date.getMonth() + 1);
+        if (month.length === 1)
+        {
+          month = "0" + month
+        }
+        let year = String(date.getFullYear());
+        return `${year}-${month}-${day}`
+      }
       
       logout_user = async () => {
-        await this.awaitSetState({user_state: {username : ""}})
-        await this.awaitSetState({user_state: {user_token: ""}})
-        document.getElementById('login_button').disabled = false
-        document.getElementById('register_button').disabled = false
-        document.getElementById('logout_button').disabled = true
-        document.getElementById('login_button').style.display = 'inline-block'
-        document.getElementById('register_button').style.display = 'inline-block'
-        document.getElementById('username_text').style.display = 'none'
-        document.getElementById('logout_button').style.display = 'none'
+        let action = async() => {
+          await this.awaitSetState({user_state: {username : ""}})
+          await this.awaitSetState({user_state: {user_token: ""}})
+          document.getElementById('login_button').disabled = false
+          document.getElementById('register_button').disabled = false
+          document.getElementById('logout_button').disabled = true
+          document.getElementById('login_button').style.display = 'inline-block'
+          document.getElementById('register_button').style.display = 'inline-block'
+          document.getElementById('username_text').style.display = 'none'
+          document.getElementById('logout_button').style.display = 'none'
+        }
+
+        await this.switchWithDataFetch(this.state.ui_state_cars, action)
       }
       
       rent_car = async (car) => {
@@ -403,14 +465,134 @@ class CarsRent extends React.Component {
         }
       
         console.log(car)
+
+        await this.awaitSetState({ui_state: this.state.ui_state_create_rent, car_for_rent: car})
       }
 
-      finish_rent = (rent_id) => {
+      getRentCost = (start, finish) => {
+        let per_day = this.state.car_for_rent['price']
+
+        let diff = Date.parse(finish) - Date.parse(start)
+        let days = Math.floor(diff / (1000 * 3600 * 24))
+
+        if (days <= 0)
+        {
+          alert('Введена некорректная дата аренды!')
+          return 0
+        }
+
+        if (days > 30)
+        {
+          alert('Нельзя брать автомобиль на такой долгий срок!')
+          return 0
+        }
+
+        let price = per_day * days
+
+        if (!price)
+        {
+          return 0
+        }
+
+        let cost_disp = document.getElementById("rent_cost")
+        if (cost_disp)
+        {
+          cost_disp.innerHTML = price
+        }
+        return price
+      }
+
+      tryRenting = async(car, start, finish) => {
+        let price = this.getRentCost(start, finish)
+        if (!price || price <= 0)
+        {
+          alert('Ошибка при расчете стоимости аренды!')
+          throw new Error('Неверные данные введены при создании аренды!')
+        }
+
+        let url_str = 'http://localhost:8080/api/v1/rental/'
+
+        try {
+          const response = await fetch(url_str, {
+            method: 'POST',
+            headers: {
+              Accept: 'application/json',
+              'Content-Type': 'application/json',
+              Authorization: this.state.user_state.user_token
+            },
+            body: JSON.stringify({carUid: car['carUid'], dateFrom: start, dateTo: finish})
+          });
+      
+          if (!response.ok) {
+            throw new Error(`Error! status: ${response.status}`);
+          }
+
+          const result = await response.json();
+          let rentalUid = result['rentalUid']
+
+          await this.getUserRentInfo(rentalUid)
+          
+        } catch (err) {
+          alert("Сервис аренд не доступен!")
+        }
+      }
+
+      getCarRentUI = () => {
+        let car = this.state.car_for_rent
+
+        let today_date = this.getDateStr(new Date())
+
+        return (
+          <React.Fragment>
+            <p>
+              Аренда
+            </p>
+            <div>{`Автомобиль: ${car['brand']} ${car['model']} ${car['type']}`}</div>
+            <div>{`Цена за день аренды: ${car['price']}руб`}</div>
+            <br></br>
+            <label for="rent-start">Начало аренды:</label>
+            <br></br>
+            <input className="UIDate" type="date" id="rent-start" name="rent-start"
+              min={today_date}>
+            </input>
+            <br></br>
+            <label for="rent-end">Конец аренды:</label>
+            <br></br>
+            <input className="UIDate" type="date" id="rent-end" name="rent-end"
+              min={today_date}>
+            </input>
+            <br></br>
+            <br></br>
+            <button className='UIButton' onClick={() => this.getRentCost(document.getElementById('rent-start').value, document.getElementById('rent-end').value)}>
+              Рассчитать стоимость
+            </button>
+            <div>{'Стоимость аренды: '}</div>
+            <div id={'rent_cost'}>0</div>
+            <br></br>
+            <br></br>
+            <button className='UIButton' onClick={async() => 
+              {
+                this.switchWithDataFetch(
+                  this.state.ui_state_selected_rent_info,
+                  this.tryRenting,
+                  car,
+                  document.getElementById('rent-start').value,
+                  document.getElementById('rent-end').value
+                )
+              }
+            }>Арендовать</button>
+        </React.Fragment>
+        )
+      }
+
+      finish_rent = async (rent_id) => {
         console.log('Finish rent ' + rent_id)
+        await this.switchWithDataFetch(this.state.ui_state_user_rents, this.finish_rent_action, rent_id)
       }
 
-      cancel_rent = (rent_id) => {
+      cancel_rent = async (rent_id) => {
         console.log('Cancel rent ' + rent_id)
+        await this.switchWithDataFetch(this.state.ui_state_user_rents, this.cancel_rent_action, rent_id)
       }
 
       carsTableHeader = () => {
@@ -443,7 +625,7 @@ class CarsRent extends React.Component {
                 <td>{c['type']}</td>
                 <td>{c['power']}</td>
                 <td>{c['price']}</td>
-                <td><button id={'b_' + c['carUid']} onClick={() => this.rent_car(c)}>Арендовать</button></td>
+                <td><button className='UIButton' id={'b_' + c['carUid']} onClick={async () => await this.rent_car(c)}>Арендовать</button></td>
               </tr>
             )
           })
@@ -517,12 +699,12 @@ class CarsRent extends React.Component {
         const user_rents_table_content = () => {
           return this.state.user_rents.map((c) => {
             let rent_status = c['status']
-            let descr = rent_status === 'IN_PROGRESS' ? 'Текущая' : (rent_status === 'FINISHED' ? 'Истекла' : 'Отменена')
+            let descr = rent_status === 'IN_PROGRESS' ? 'Текущая' : (rent_status === 'FINISHED' ? 'Завершена' : 'Отменена')
             let b_can_cancel = Date.parse(c['dateFrom']) > Date.now()
             let b_finished = rent_status !== 'IN_PROGRESS'
 
             let info = (
-              <button id={'i_' + c['rentalUid']} onClick={async () => { 
+              <button className='UIButton' id={'i_' + c['rentalUid']} onClick={async () => { 
                 await this.switchWithDataFetch(this.state.ui_state_selected_rent_info, this.getUserRentInfo, c['rentalUid'])
               }}>Информация</button>
             )
@@ -532,11 +714,11 @@ class CarsRent extends React.Component {
             {
               if (b_can_cancel)
               {
-                action = <button id={'r_' + c['rentalUid']} onClick={() => this.cancel_rent(c['rentalUid'])}>Отмена</button>
+                action = <button className='UIButton' id={'r_' + c['rentalUid']} onClick={async () => await this.cancel_rent(c['rentalUid'])}>Отмена</button>
               }
               else
               {
-                action = <button id={'r_' + c['rentalUid']} onClick={() => this.finish_rent_rent(c['rentalUid'])}>Завершить</button>
+                action = <button className='UIButton' id={'r_' + c['rentalUid']} onClick={async () => await this.finish_rent(c['rentalUid'])}>Завершить</button>
               }
             }
 
@@ -603,7 +785,7 @@ class CarsRent extends React.Component {
             <div>{`Автомобиль: ${rent['car']['brand']} ${rent['car']['model']}`}</div>
             <br></br>
             <div>{`Срок аренды: ${rent['dateFrom']} - ${rent['dateTo']}`}</div>
-            <div>{`Статус: ${rent['status'] === 'IN_PROGRESS' ? 'Текущая' : (rent['status'] === 'FINISHED' ? 'Истекла' : 'Отменена')}`}</div>
+            <div>{`Статус: ${rent['status'] === 'IN_PROGRESS' ? 'Текущая' : (rent['status'] === 'FINISHED' ? 'Завершена' : 'Отменена')}`}</div>
             <br></br>
             <div>{`Оплата: Цена ${rent['payment']['price']}руб`}</div>
             <div>{`Статус: ${rent['payment']['status'] === 'PAID' ? 'Оплачено' : 'Отменено'}`}</div>
@@ -631,6 +813,8 @@ class CarsRent extends React.Component {
             return this.getUserRentsUI()
           case this.state.ui_state_selected_rent_info:
             return this.getUserSelectedRentInfoUI()
+          case this.state.ui_state_create_rent:
+            return this.getCarRentUI()
           default:
             return (<h1>ERROR</h1>)
         }
@@ -653,25 +837,25 @@ class CarsRent extends React.Component {
         </input>
         </form>
 
-        <button className='UISelector' id={'login_button'} onClick={this.login_user}>
+        <button className='UIButton' id={'login_button'} onClick={async() => await this.switchWithDataFetch(this.state.ui_state_cars, this.login_user)}>
           Авторизация
         </button>
-        <button className='UISelector' id={'register_button'} onClick={this.register_user}>
+        <button className='UIButton' id={'register_button'} onClick={async() => await this.switchWithDataFetch(this.state.ui_state_cars, this.register_user)}>
           Регистрация
         </button>
         <span id={'username_text'}>
           USERNAME
         </span>
-        <button className='UISelector' id={'logout_button'} onClick={this.logout_user}>
+        <button className='UIButton' id={'logout_button'} onClick={async() => await this.logout_user()}>
           Выход
         </button>
 
         <br/>
 
-        <button className='UISelector' onClick={async () => await this.awaitSetState({ui_state: this.state.ui_state_cars, page: 1})}>
+        <button className='UIButton' onClick={async () => await this.awaitSetState({ui_state: this.state.ui_state_cars, page: 1})}>
           Автомобили
         </button>
-        <button className='UISelector' onClick={async () => await this.switchWithDataFetch(this.state.ui_state_user_rents, this.updateUserRentsData)}>
+        <button className='UIButton' onClick={async () => await this.switchWithDataFetch(this.state.ui_state_user_rents, this.updateUserRentsData)}>
           Ваши аренды
         </button>
 

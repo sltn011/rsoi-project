@@ -42,7 +42,18 @@
   font-size: 14px;
 }
 
-.UISelector {
+.UIButton {
+  background-color: #4a5261;
+  color: white;
+  opacity: 1;
+  padding: 15px 32px;
+  text-align: left;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 14px;
+}
+
+.UIDate {
   background-color: #4a5261;
   color: white;
   opacity: 1;
