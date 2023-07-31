@@ -1,5 +1,6 @@
 package ru.rsoi.Accounts.Controller;
 
+import Utils.AvgTime;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -17,42 +18,66 @@ import java.util.*;
 public class CAccounts {
 
     private final RAccounts accRepo;
+    private AvgTime avgTime;
 
     public CAccounts(RAccounts accRepo)
     {
         this.accRepo = accRepo;
+        this.avgTime = new AvgTime();
     }
 
     @GetMapping("")
     public Iterable<MAccount> getAccs()
     {
-        return accRepo.findAll();
+        AvgTime avg = new AvgTime();
+        avg.begin();
+        Iterable res = accRepo.findAll();
+        avg.end();
+        avgTime.add(avg.get());
+        return res;
     }
 
     @GetMapping("/uid/{accUid}")
     public MAccount getAcc(@PathVariable String accUid)
     {
-        return findAccByUid(UUID.fromString(accUid))
+        AvgTime avg = new AvgTime();
+        avg.begin();
+        MAccount res = findAccByUid(UUID.fromString(accUid))
                 .orElseThrow(() -> new EBadRequestError("Acc not found!", new ArrayList<>()));
+        avg.end();
+        avgTime.add(avg.get());
+        return res;
     }
 
     @GetMapping("/uname/{username}")
     public MAccount getAccByUName(@PathVariable String username)
     {
-        return findAccByUName(username)
+        AvgTime avg = new AvgTime();
+        avg.begin();
+        MAccount res = findAccByUName(username)
                 .orElseThrow(() -> new EBadRequestError("Acc not found!", new ArrayList<>()));
+        avg.end();
+        avgTime.add(avg.get());
+        return res;
     }
 
     @GetMapping("/login")
     public MAccount login(@RequestParam String username, @RequestParam String password)
     {
-        return findAcc(username, password)
+        AvgTime avg = new AvgTime();
+        avg.begin();
+        MAccount res = findAcc(username, password)
                 .orElseThrow(() -> new EBadRequestError("Acc not found!", new ArrayList<>()));
+        avg.end();
+        avgTime.add(avg.get());
+        return res;
     }
 
     @PostMapping("/register")
     public MAccount addAcc(@RequestBody Map<String, String> values)
     {
+        AvgTime avg = new AvgTime();
+        avg.begin();
         String username = values.get("username");
         boolean doesExist = findAccByUName(username).isPresent();
         if (doesExist)
@@ -63,12 +88,16 @@ public class CAccounts {
         MAccount acc = new MAccount();
         fillValues(acc, values);
         accRepo.save(acc);
+        avg.end();
+        avgTime.add(avg.get());
         return acc;
     }
 
     @PutMapping("/{carUid}")
     public MAccount updateAcc(@PathVariable String carUid, @RequestBody Map<String, String> values)
     {
+        AvgTime avg = new AvgTime();
+        avg.begin();
         UUID accUidVal = UUID.fromString(carUid);
         Optional<MAccount> oacc = findAccByUid(accUidVal);
         if (!oacc.isPresent())
@@ -80,7 +109,18 @@ public class CAccounts {
 
         fillValues(acc, values);
         accRepo.deleteById(acc.getId());
-        return accRepo.save(acc);
+        MAccount res = accRepo.save(acc);
+        avg.end();
+        avgTime.add(avg.get());
+        return res;
+    }
+
+    @GetMapping("/stats")
+    public AvgTime.Info getAvgTime()
+    {
+        AvgTime.Info res = new AvgTime.Info();
+        res.avgTime = avgTime.get();
+        return res;
     }
 
     private Optional<MAccount> findAccByUid(UUID accUid)

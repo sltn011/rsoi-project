@@ -405,21 +405,23 @@ public class CGateway {
     }
 
     @GetMapping("/stats")
-    public String getAvgTime(@RequestHeader(value = "Authorization", required = false) String access_token)
+    public AvgTime.Info getAvgTime()
     {
-        AvgTime avg = new AvgTime();
-        avg.begin();
+        AvgTime.Info res = new AvgTime.Info();
+        res.avgTime = avgTime.get();
+        return res;
+    }
 
-        System.out.println(access_token);
-        access_token = fixToken(access_token);
-        System.out.println(access_token);
-
-        String role = getRole(access_token);
-        if (role != "ADMIN")
+    @GetMapping("/avgTime")
+    public String getServicesStats(@RequestHeader(value = "Authorization", required = false) String access_token)
+    {
+        if (!IsValidToken(access_token))
         {
-            avg.end();
-            avgTime.add(avg.get());
-            return new String();
+            throw new EUnauthorized("Не достаточно прав для выбранного действия!");
+        }
+        if (!getRole(access_token).equals("ADMIN"))
+        {
+            throw new EUnauthorized("Не достаточно прав для выбранного действия!");
         }
 
         String url = UriComponentsBuilder.fromHttpUrl(StatsService)
@@ -442,22 +444,57 @@ public class CGateway {
         catch (HttpClientErrorException e)
         {
             System.out.println(e);
-            return new String();
+            throw new EBadRequestError(e.toString(), new ArrayList<>());
         }
         catch (HttpServerErrorException e)
         {
             System.out.println(e);
-            return new String();
+            throw new EBadRequestError(e.toString(), new ArrayList<>());
         }
         catch (RestClientException e)
         {
             System.out.println(e);
-            return new String();
+            throw new EBadRequestError(e.toString(), new ArrayList<>());
+        }
+        if (response.getStatusCode() == HttpStatus.NOT_FOUND)
+        {
+            throw new ENotFoundError(response.getBody());
+        }
+        if (response.getStatusCode() == HttpStatus.BAD_REQUEST)
+        {
+            throw new EBadRequestError(response.getBody(), new ArrayList<>());
         }
 
+        return response.getBody();
+    }
+
+    @GetMapping("/role")
+    public String getRoleFromToken(@RequestHeader(value = "Authorization", required = false) String access_token)
+    {
+        AvgTime avg = new AvgTime();
+        avg.begin();
+
+        JSONObject res = new JSONObject();
+        if (!IsValidToken(access_token))
+        {
+            res.put("role", "INVALID");
+            avg.end();
+            avgTime.add(avg.get());
+            return res.toString();
+        }
+
+        String role = getRole(access_token);
+        if (role.length() == 0)
+        {
+            res.put("role", "INVALID");
+            avg.end();
+            avgTime.add(avg.get());
+            return res.toString();
+        }
+        res.put("role", role);
         avg.end();
         avgTime.add(avg.get());
-        return response.getBody();
+        return res.toString();
     }
 
     private MRentCarInfo getRentCarInfo(String carUid)

@@ -15,6 +15,7 @@ class CarsRent extends React.Component {
             user_rented_cars: {'items': []},
             user_selected_rent_info : {},
             car_for_rent : {},
+            services_stats : {},
 
             ui_state_cars: 'ui_state_cars',
             ui_state_rent: 'ui_state_rent',
@@ -28,6 +29,7 @@ class CarsRent extends React.Component {
             user_state: {
               "username": "",
               "user_token": "",
+              "user_role": "USER"
             },
         }
     }
@@ -166,6 +168,33 @@ class CarsRent extends React.Component {
         window.requestAnimationFrame(async () => await this.onLoad())
     }
 
+    getStats = async() => {
+      try {
+        const response = await fetch('http://localhost:8080/api/v1/avgTime', {
+          method: 'GET',
+          headers: {
+            Accept: 'application/json',
+            Authorization: this.state.user_state.user_token
+          },
+        });
+    
+        if (!response.ok) {
+          alert('Ошибка запроса статистики!')
+            return
+        }
+    
+        const result = await response.json();
+        console.log(result)
+
+        this.state.services_stats = result
+      }
+      catch(e)
+      {
+        console.log(e)
+        throw new Error('Ошибка запроса статистики!')
+      }
+    }
+
     pageDecr = async () => {
         let oldpage = this.state.page
         let newpage = this.state.page > 1 ? this.state.page - 1 : this.state.page
@@ -268,6 +297,41 @@ class CarsRent extends React.Component {
         }
         return res
       }
+
+      get_user_role = async (token) => {
+        try {
+          const response = await fetch('http://localhost:8080/api/v1/role', {
+            method: 'GET',
+            headers: {
+              Accept: 'application/json',
+              Authorization: token
+            },
+          });
+      
+          if (!response.ok) {
+            alert('Ошибка авторизации!')
+              return
+          }
+      
+          const result = await response.json();
+          console.log(result)
+          let user_role = result['role']
+          console.log('user_role ' + user_role)
+
+          if (user_role === 'INVALID')
+          {
+            alert('Ошибка авторизации!')
+              return
+          }
+
+          this.state.user_state.user_role = user_role
+        }
+        catch(e)
+        {
+          console.log(e)
+          throw new Error('Ошибка авторизации!')
+        }
+      }
       
       login_user = async () => {
         let username = document.getElementById('nick_input').value
@@ -333,11 +397,14 @@ class CarsRent extends React.Component {
           document.getElementById('username_text').style.display = ''
           document.getElementById('logout_button').style.display = ''
           console.log(this.state.user_state.user_token)
+
+          await this.get_user_role(result['token'])
       
         } catch (err) {
           console.log(err.message);
         }
 
+        await this.switchWithDataFetch(this.state.ui_state_cars, async() => {})
       }
       
       validate_email = (mail) =>
@@ -428,6 +495,7 @@ class CarsRent extends React.Component {
         } catch (err) {
           console.log(err.message);
         }
+        await this.switchWithDataFetch(this.state.ui_state_cars, async() => {})
       }
 
       getDateStr = (date) => {
@@ -800,6 +868,50 @@ class CarsRent extends React.Component {
           </React.Fragment>
         )
       }
+
+      getStatsTableHeader = () => {
+        let header_names = ["Сервис", "Среднее время обработки запроса"]
+
+        const stats_table_hcontent = () => {
+          return (
+            header_names.map((data) => {
+              return <th key={data}>{data}</th>
+            })
+          )
+        }
+
+        return (
+          <thead>
+            <tr>
+              {stats_table_hcontent()}
+            </tr>
+          </thead>
+        )
+      }
+
+      getStatsTableBody = () => {
+        const avg = this.state.services_stats
+
+        return (
+          <React.Fragment>
+            <tr><td>Gateway сервис</td><td>{`${avg['GatewayAvgTime'] / 1000}мс`}</td></tr>
+            <tr><td>Сервис аккаунтов</td><td>{`${avg['AccAvgTime'] / 1000}мс`}</td></tr>
+            <tr><td>Сервис автомобилей</td><td>{`${avg['CarsAvgTime'] / 1000}мс`}</td></tr>
+            <tr><td>Сервис аренд</td><td>{`${avg['RentalAvgTime'] / 1000}мс`}</td></tr>
+            <tr><td>Сервис платежей</td><td>{`${avg['PaymentAvgTime'] / 1000}мс`}</td></tr>
+          </React.Fragment>
+        )
+      }
+
+      getStatsUI = () => {
+        return (
+          <React.Fragment>
+            <p>Статистика работы сервисов</p>
+            {this.getStatsTableHeader()}
+            {this.getStatsTableBody()}
+          </React.Fragment>
+        )
+      }
       
       getCurrentUI () {
         switch (this.state.ui_state)
@@ -815,12 +927,25 @@ class CarsRent extends React.Component {
             return this.getUserSelectedRentInfoUI()
           case this.state.ui_state_create_rent:
             return this.getCarRentUI()
+          case this.state.ui_state_stats:
+            return this.getStatsUI()
           default:
             return (<h1>ERROR</h1>)
         }
       }
 
     render() {
+
+        let admin_control = <div></div>
+        if (this.state.user_state.user_role === 'ADMIN')
+        {
+          admin_control = (
+            <button className='UIButton' onClick={async () => await this.switchWithDataFetch(this.state.ui_state_stats, this.getStats)}>
+            Панель администратора
+            </button>
+          )
+        }
+
         return (
         <div className="App">
         <header className="App-header">
@@ -849,6 +974,10 @@ class CarsRent extends React.Component {
         <button className='UIButton' id={'logout_button'} onClick={async() => await this.logout_user()}>
           Выход
         </button>
+
+        <br/>
+
+        {admin_control}
 
         <br/>
 

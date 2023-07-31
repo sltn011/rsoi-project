@@ -18,15 +18,17 @@ import java.util.ArrayList;
 @RequestMapping("/api/v1/sys/stats")
 public class CStats {
 
-    public static final String CarsService    = "http://10.96.184.168:8070/api/v1/sys/cars/stats";
-    public static final String RentService    = "http://10.96.185.123:8060/api/v1/sys/rental/stats";
-    public static final String PaymentService = "http://10.96.215.106:8050/api/v1/sys/payment/stats";
-    public static final String AccService     = "http://10.96.215.106:8010/api/v1/sys/acc/stats";
+    public static final String GatewayService = "http://localhost:8080/api/v1/stats";
+    public static final String CarsService    = "http://localhost:8070/api/v1/sys/cars/stats";
+    public static final String RentService    = "http://localhost:8060/api/v1/sys/rental/stats";
+    public static final String PaymentService = "http://localhost:8050/api/v1/sys/payment/stats";
+    public static final String AccService     = "http://localhost:8010/api/v1/sys/acc/stats";
 
     @GetMapping("/avgTime")
     public MAvgTime getAvgTime()
     {
         MAvgTime res = new MAvgTime();
+        res.GatewayAvgTime = getServiceAvgTime(GatewayService);
         res.CarsAvgTime = getServiceAvgTime(CarsService);
         res.RentalAvgTime = getServiceAvgTime(RentService);
         res.PaymentAvgTime = getServiceAvgTime(PaymentService);
