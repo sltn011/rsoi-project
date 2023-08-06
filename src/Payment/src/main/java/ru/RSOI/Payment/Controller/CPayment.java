@@ -1,7 +1,9 @@
 package ru.RSOI.Payment.Controller;
 
 import Utils.AvgTime;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.web.bind.annotation.*;
 import ru.RSOI.Payment.Error.EBadRequestError;
 import ru.RSOI.Payment.Error.ENotFoundError;
@@ -26,6 +28,13 @@ public class CPayment {
         this.avgTime = new AvgTime();
     }
 
+    @Autowired
+    private KafkaTemplate<String, String> kafkaTemplate;
+
+    public void sendMessage(String msg) {
+        kafkaTemplate.send("AppTopic", msg);
+    }
+
     @GetMapping("")
     public List<MPayment> getAll()
     {
@@ -42,6 +51,7 @@ public class CPayment {
     {
         AvgTime avg = new AvgTime();
         avg.begin();
+        sendMessage("getPayment " + payment_uid);
         UUID uid = UUID.fromString(payment_uid);
         MPayment res = findPayment(uid);
         avg.end();
@@ -54,6 +64,7 @@ public class CPayment {
     {
         AvgTime avg = new AvgTime();
         avg.begin();
+        sendMessage("createPayment " + price);
         MPayment payment = new MPayment();
         payment.v2_status = "PAID";
         payment.v3_price = price;
@@ -69,6 +80,7 @@ public class CPayment {
     {
         AvgTime avg = new AvgTime();
         avg.begin();
+        sendMessage("cancelPayment " + payment_uid);
         UUID uid = UUID.fromString(payment_uid);
         MPayment payment = findPayment(uid);
         paymentRepo.deleteById(payment.getId());

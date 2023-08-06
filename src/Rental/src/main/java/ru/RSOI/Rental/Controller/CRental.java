@@ -1,7 +1,9 @@
 package ru.RSOI.Rental.Controller;
 
 import Utils.AvgTime;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.web.bind.annotation.*;
 import ru.RSOI.Rental.Error.EBadRequestError;
 import ru.RSOI.Rental.Error.ENotFoundError;
@@ -24,11 +26,19 @@ public class CRental {
         this.avgTime = new AvgTime();
     }
 
+    @Autowired
+    private KafkaTemplate<String, String> kafkaTemplate;
+
+    public void sendMessage(String msg) {
+        kafkaTemplate.send("AppTopic", msg);
+    }
+
     @GetMapping("")
     public List<MRental> getUserRents(@RequestHeader(value = "X-User-Name") String username)
     {
         AvgTime avg = new AvgTime();
         avg.begin();
+        sendMessage("getUserRents " + username);
         List res= rentRepo.findUserRents(username);
         avg.end();
         avgTime.add(avg.get());
@@ -40,6 +50,7 @@ public class CRental {
     {
         AvgTime avg = new AvgTime();
         avg.begin();
+        sendMessage("getUserRent " + rentalUid + " " + username);
         UUID uid = UUID.fromString(rentalUid);
         MRental res = findRentWithChecks(uid, username);
         avg.end();
@@ -52,6 +63,7 @@ public class CRental {
     {
         AvgTime avg = new AvgTime();
         avg.begin();
+        sendMessage("tryRenting " + username + " " + values.containsKey("carUid"));
         UUID carUid;
         UUID paymentUid;
         Timestamp dateFrom;
@@ -146,6 +158,7 @@ public class CRental {
     {
         AvgTime avg = new AvgTime();
         avg.begin();
+        sendMessage("finishRent " + rentalUid + " " + username);
         UUID uid = UUID.fromString(rentalUid);
         MRental foundRent = findInProgressRentWithChecks(uid, username);
         foundRent.v7_status = "FINISHED";
@@ -161,6 +174,7 @@ public class CRental {
     {
         AvgTime avg = new AvgTime();
         avg.begin();
+        sendMessage("cancelRent " + rentalUid + " " + username);
         UUID uid = UUID.fromString(rentalUid);
         MRental foundRent = findInProgressRentWithChecks(uid, username);
         foundRent.v7_status = "CANCELED";

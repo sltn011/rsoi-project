@@ -3,7 +3,9 @@ package ru.RSOI.Gateway.Controller;
 import Utils.AvgTime;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.*;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.*;
 import org.springframework.web.util.UriBuilder;
@@ -35,6 +37,13 @@ public class CGateway {
 
     private AvgTime avgTime;
 
+    @Autowired
+    private KafkaTemplate<String, String> kafkaTemplate;
+
+    public void sendMessage(String msg) {
+        kafkaTemplate.send("AppTopic", msg);
+    }
+
     public CGateway()
     {
         this.avgTime = new AvgTime();
@@ -52,6 +61,8 @@ public class CGateway {
     {
         AvgTime avg = new AvgTime();
         avg.begin();
+
+        sendMessage("Register " + username + " " + email + " " + password);
 
         if (checkUserExists(username))
         {
@@ -80,6 +91,8 @@ public class CGateway {
     {
         AvgTime avg = new AvgTime();
         avg.begin();
+
+        sendMessage("Login " + username + " " + password);
 
         if (!checkUserExists(username))
         {
@@ -114,6 +127,8 @@ public class CGateway {
     {
         AvgTime avg = new AvgTime();
         avg.begin();
+
+        sendMessage("GetCars " + page + " " + size + " " + showAll);
 
         String url = UriComponentsBuilder.fromHttpUrl(CarsService)
                 .queryParam("page", page)
@@ -195,6 +210,8 @@ public class CGateway {
         AvgTime avg = new AvgTime();
         avg.begin();
 
+        sendMessage("GetCarByUID " + uid);
+
         String url = UriComponentsBuilder.fromHttpUrl(CarsService + "/" + uid)
                 .toUriString();
 
@@ -260,6 +277,8 @@ public class CGateway {
         AvgTime avg = new AvgTime();
         avg.begin();
 
+        sendMessage("GetUserRents " + access_token);
+
         System.out.println(access_token);
         access_token = fixToken(access_token);
         System.out.println(access_token);
@@ -283,6 +302,8 @@ public class CGateway {
     {
         AvgTime avg = new AvgTime();
         avg.begin();
+
+        sendMessage("Try renting " + access_token);
 
         System.out.println(access_token);
         access_token = fixToken(access_token);
@@ -329,6 +350,8 @@ public class CGateway {
         AvgTime avg = new AvgTime();
         avg.begin();
 
+        sendMessage("GetUserRent " + rentalUid);
+
         System.out.println(access_token);
         access_token = fixToken(access_token);
         System.out.println(access_token);
@@ -356,6 +379,8 @@ public class CGateway {
     {
         AvgTime avg = new AvgTime();
         avg.begin();
+
+        sendMessage("CancelRent " + rentalUid);
 
         System.out.println(access_token);
         access_token = fixToken(access_token);
@@ -385,6 +410,8 @@ public class CGateway {
         AvgTime avg = new AvgTime();
         avg.begin();
 
+        sendMessage("FinishRent " + rentalUid);
+
         System.out.println(access_token);
         access_token = fixToken(access_token);
         System.out.println(access_token);
@@ -407,6 +434,7 @@ public class CGateway {
     @GetMapping("/stats")
     public AvgTime.Info getAvgTime()
     {
+        sendMessage("GetAvgTime");
         AvgTime.Info res = new AvgTime.Info();
         res.avgTime = avgTime.get();
         return res;
@@ -415,6 +443,8 @@ public class CGateway {
     @GetMapping("/avgTime")
     public String getServicesStats(@RequestHeader(value = "Authorization", required = false) String access_token)
     {
+        sendMessage("GetStats");
+
         if (!IsValidToken(access_token))
         {
             throw new EUnauthorized("Не достаточно прав для выбранного действия!");
@@ -473,6 +503,8 @@ public class CGateway {
     {
         AvgTime avg = new AvgTime();
         avg.begin();
+
+        sendMessage("GetUserRole " + access_token);
 
         JSONObject res = new JSONObject();
         if (!IsValidToken(access_token))

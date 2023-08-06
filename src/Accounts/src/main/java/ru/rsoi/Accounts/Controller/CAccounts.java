@@ -1,8 +1,10 @@
 package ru.rsoi.Accounts.Controller;
 
 import Utils.AvgTime;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import ru.rsoi.Accounts.Model.MAccount;
@@ -26,6 +28,13 @@ public class CAccounts {
         this.avgTime = new AvgTime();
     }
 
+    @Autowired
+    private KafkaTemplate<String, String> kafkaTemplate;
+
+    public void sendMessage(String msg) {
+        kafkaTemplate.send("AppTopic", msg);
+    }
+
     @GetMapping("")
     public Iterable<MAccount> getAccs()
     {
@@ -42,6 +51,7 @@ public class CAccounts {
     {
         AvgTime avg = new AvgTime();
         avg.begin();
+        sendMessage("getAcc " + accUid);
         MAccount res = findAccByUid(UUID.fromString(accUid))
                 .orElseThrow(() -> new EBadRequestError("Acc not found!", new ArrayList<>()));
         avg.end();
@@ -54,6 +64,7 @@ public class CAccounts {
     {
         AvgTime avg = new AvgTime();
         avg.begin();
+        sendMessage("getAccByUname " + username);
         MAccount res = findAccByUName(username)
                 .orElseThrow(() -> new EBadRequestError("Acc not found!", new ArrayList<>()));
         avg.end();
@@ -66,6 +77,7 @@ public class CAccounts {
     {
         AvgTime avg = new AvgTime();
         avg.begin();
+        sendMessage("login " + username + " " + password);
         MAccount res = findAcc(username, password)
                 .orElseThrow(() -> new EBadRequestError("Acc not found!", new ArrayList<>()));
         avg.end();
@@ -78,6 +90,7 @@ public class CAccounts {
     {
         AvgTime avg = new AvgTime();
         avg.begin();
+        sendMessage("AddAcc " + values.get("username"));
         String username = values.get("username");
         boolean doesExist = findAccByUName(username).isPresent();
         if (doesExist)

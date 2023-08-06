@@ -1,8 +1,10 @@
 package ru.RSOI.Cars.Controller;
 
 import Utils.AvgTime;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import ru.RSOI.Cars.Model.MCar;
@@ -20,6 +22,13 @@ public class CCar {
     private final RCar carRepo;
     private AvgTime avgTime;
 
+    @Autowired
+    private KafkaTemplate<String, String> kafkaTemplate;
+
+    public void sendMessage(String msg) {
+        kafkaTemplate.send("AppTopic", msg);
+    }
+
     public CCar(RCar carRepo)
     {
         this.carRepo = carRepo;
@@ -32,6 +41,7 @@ public class CCar {
     {
         AvgTime avg = new AvgTime();
         avg.begin();
+        sendMessage("getCars " + page + " " + size + " " + showAll);
         Iterable res = getCarsPage(page - 1, size, showAll);
         avg.end();
         avgTime.add(avg.get());
@@ -43,6 +53,7 @@ public class CCar {
     {
         AvgTime avg = new AvgTime();
         avg.begin();
+        sendMessage("getCar " + carUid);
         UUID uuid = UUID.fromString(carUid);
         Optional<MCar> res = findCar(uuid);
         avg.end();
@@ -72,6 +83,7 @@ public class CCar {
     {
         AvgTime avg = new AvgTime();
         avg.begin();
+        sendMessage("updateAvailableCar " + carUid + " " + isSetAvailable);
         UUID carUidVal = UUID.fromString(carUid);
         MCar car = findAnyCar(carUidVal);
         updateAvailability(car, isSetAvailable);
@@ -86,6 +98,7 @@ public class CCar {
     {
         AvgTime avg = new AvgTime();
         avg.begin();
+        sendMessage("requestCar " + carUid);
         MCar car = findAvailableCar(UUID.fromString(carUid));
         updateAvailability(car, false);
         carRepo.deleteById(car.getId());

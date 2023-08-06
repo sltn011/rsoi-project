@@ -1,6 +1,7 @@
 package ru.RSOI.Stats.Controller;
 
 import org.springframework.http.*;
+import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -34,6 +35,11 @@ public class CStats {
         res.PaymentAvgTime = getServiceAvgTime(PaymentService);
         res.AccAvgTime = getServiceAvgTime(AccService);
         return res;
+    }
+
+    @KafkaListener(topics = "AppTopic", groupId = "AppGroup")
+    public void listenGroupFoo(String message) {
+        System.out.println("KafkaLog[AppGroup]: " + message);
     }
 
     private float getServiceAvgTime(String path)
