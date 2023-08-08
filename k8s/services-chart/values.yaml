@@ -29,3 +29,21 @@ gateway:
       name: sltn011/gateway
       version: "latest"
     isGateway: true
+auth:
+  service:
+    port: 9889
+    image:
+      name: sltn011/auth
+      version: "latest"
+accounts:
+  service:
+    port: 8010
+    image:
+      name: sltn011/accounts
+      version: "latest"
+gateway:
+  service:
+    port: 8100
+    image:
+      name: sltn011/stats
+      version: "latest"

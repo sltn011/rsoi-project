@@ -392,7 +392,7 @@ class CarsRent extends React.Component {
           await this.get_user_role(result['token'])
       
         } catch (err) {
-          console.log(err.message);
+          throw new Error('Ошибка авторизации!')
         }
 
         await this.switchWithDataFetch(this.state.ui_state_cars, async() => {})
