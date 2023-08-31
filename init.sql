@@ -50,5 +50,5 @@ INSERT INTO public.cars(
 	VALUES (0, '109b42f3-198d-4c89-9276-a7520a7120ab', 'Mercedes Benz', 'GLA 250', 'ЛО777Х799', 249, 3500, 'SEDAN', true);
 
 INSERT INTO public.accounts(
-	id, accUid, username, password, role)
-	VALUES (0, '9d10c23a-61ee-487d-8ed7-dd360298bc94', 'admin', 'admin', 'ADMIN');
+	id, accUid, username, email, password, role)
+	VALUES (0, '9d10c23a-61ee-487d-8ed7-dd360298bc94', 'admin', 'admin@rsoi.ru', 'admin', 'ADMIN');
